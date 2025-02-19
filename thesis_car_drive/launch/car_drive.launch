@@ -1,0 +1,7 @@
+<?xml version="1.0"?>
+<launch>
+    <node pkg="thesis_car_drive" type="jetracer_chassis.py" name="jetracer_chassis" output="screen">
+        <param name="Cmd_Timeout_Value" value="0.6"/>
+    </node>
+
+</launch>
