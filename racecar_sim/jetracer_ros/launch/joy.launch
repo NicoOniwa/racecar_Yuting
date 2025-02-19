@@ -4,7 +4,7 @@
 
   <node pkg="joy" type="joy_node" name="joy_node" />
   <node pkg="jetracer" type="teleop_joy.py" name="teleop_joy_node" output="screen">
-	<param name="x_speed"  value="5" />
+	<param name="x_speed"  value="1" />
 	<param name="y_speed"  value="0" />
 	<param name="w_speed"  value="3" />
    </node>

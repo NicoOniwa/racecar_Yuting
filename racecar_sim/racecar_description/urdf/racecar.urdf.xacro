@@ -38,9 +38,9 @@ limitations under the License.
 
 <robot name="racecar" xmlns:xacro="http://www.ros.org/wiki/xacro">
   <!-- include sensors -->
-  <!-- <xacro:include filename="$(find racecar_description)/urdf/sensors/lidar.xacro" />
+  <!-- <xacro:include filename="$(find racecar_description)/urdf/sensors/lidar.xacro" /> -->
   <xacro:include filename="$(find racecar_description)/urdf/sensors/imu.xacro" />
-  <xacro:include filename="$(find racecar_description)/urdf/sensors/camera.xacro" /> -->
+  <!-- <xacro:include filename="$(find racecar_description)/urdf/sensors/camera.xacro" /> -->
 
   <!-- Degree-to-radian conversions -->
   <xacro:property name="degrees_45" value="0.785398163"/>
@@ -483,29 +483,29 @@ limitations under the License.
   <!-- layers -->
   <!-- <xacro:layer layer="platform" parent="chassis" m="${layer_mass}" x="${layer_x}" y="${layer_y}" z="${layer_z}">
     <origin xyz="0 0 ${layer_height}" rpy="0 0 0" />
-  </xacro:layer>
+  </xacro:layer> -->
 
-  <xacro:layer layer="lidar_platform" parent="platform_link" m="${layer_mass}" x="0.12" y="0.10" z="0.01">
+  <!-- <xacro:layer layer="lidar_platform" parent="platform_link" m="${layer_mass}" x="0.12" y="0.10" z="0.01">
     <origin xyz="0.08 0 ${layer_height}" rpy="0 0 0" />
-  </xacro:layer>
+  </xacro:layer> -->
 
-  <joint name="lidar_joint" type="fixed">
+  <!-- <joint name="lidar_joint" type="fixed">
     <origin xyz="0 0 0.03" rpy="0 0 0" />
     <parent link="lidar_platform_link"/>
     <child link="laser_link"/>
-  </joint>
+  </joint> -->
 
-  <lidar prefix="laser"/>
+  <!-- <lidar prefix="laser"/> -->
 
   <joint name="imu_joint" type="fixed">
-    <origin xyz="0.16 0 0.015" rpy="0 0 0" />
-    <parent link="platform_link"/>
+    <origin xyz="0 0 0" rpy="0 0 0" />
+    <parent link="base_link"/>
     <child link="imu_link"/>
   </joint>
 
   <imu prefix="imu"/>
 
-  <joint name="camera_joint" type="fixed">
+  <!-- <joint name="camera_joint" type="fixed">
     <origin xyz="0.16 0 0.05" rpy="0 0 0" />
     <parent link="platform_link"/>
     <child link="camera_link"/>
