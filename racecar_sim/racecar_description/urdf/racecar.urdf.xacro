@@ -397,13 +397,13 @@ limitations under the License.
     </gazebo>
   </xacro:macro>
 
-  <!-- <link name="world"/>
+  <link name="world"/>
 
   <joint name="fixed_world" type="fixed">
     <parent link="world"/>
     <child link="base_footprint"/>
     <origin xyz="0.0 0.0 0.5"/>
-  </joint> -->
+  </joint>
 
   <link name="base_footprint"/>
   <!-- base_link must have geometry so that its axes can be displayed in

@@ -30,7 +30,7 @@ class ImuTransformer:
         self.pose_pub = rospy.Publisher("/base_link/orientation", PoseStamped, queue_size=10)  # 📌 新增发布器
         rospy.spin()
 
-    def imu_callback(self, raw_imu):
+    def imu_callback(self, raw_imu:Imu):
         try:
             # 获取坐标变换
             transform = self.tf_buffer.lookup_transform(
