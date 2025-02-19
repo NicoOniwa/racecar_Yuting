@@ -52,5 +52,6 @@
         </gazebo>
 
     </xacro:macro>
+    <xacro:imu prefix="imu"/>
 
 </robot>

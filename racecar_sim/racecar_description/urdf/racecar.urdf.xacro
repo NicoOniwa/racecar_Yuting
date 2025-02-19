@@ -38,9 +38,9 @@ limitations under the License.
 
 <robot name="racecar" xmlns:xacro="http://www.ros.org/wiki/xacro">
   <!-- include sensors -->
-  <xacro:include filename="$(find racecar_description)/urdf/sensors/lidar.xacro" />
+  <!-- <xacro:include filename="$(find racecar_description)/urdf/sensors/lidar.xacro" />
   <xacro:include filename="$(find racecar_description)/urdf/sensors/imu.xacro" />
-  <xacro:include filename="$(find racecar_description)/urdf/sensors/camera.xacro" />
+  <xacro:include filename="$(find racecar_description)/urdf/sensors/camera.xacro" /> -->
 
   <!-- Degree-to-radian conversions -->
   <xacro:property name="degrees_45" value="0.785398163"/>
@@ -48,10 +48,10 @@ limitations under the License.
 
   <!-- chassis_length is measured along the x axis, chassis_width
        along the y axis, and chassis_height along the z axis. -->
-  <xacro:property name="chassis_length" value="0.258"/>
-  <xacro:property name="chassis_width" value="0.168"/>
+  <xacro:property name="chassis_length" value="0.16"/>
+  <xacro:property name="chassis_width" value="0.04"/>
   <xacro:property name="chassis_height" value="0.01"/>
-  <xacro:property name="chassis_mass" value="2.788"/>
+  <xacro:property name="chassis_mass" value="5.788"/>
 
   <!-- battery_dist is the distance between the inner edges of the
        batteries. battery_comp_depth is the battery compartment depth.
@@ -72,8 +72,8 @@ limitations under the License.
        is a "zero offset" wheel. hex_hub_depth = tire_width / 2 -
        axle_length. -->
   <xacro:property name="hub_dia" value="0.09652"/>
-  <xacro:property name="tire_dia" value="0.14605"/>
-  <xacro:property name="tire_width" value="0.0889"/>
+  <xacro:property name="tire_dia" value="0.047"/>
+  <xacro:property name="tire_width" value="0.03"/>
   <xacro:property name="hex_hub_depth" value="0.01445"/>
   <xacro:property name="wheel_mass" value="0.29"/>
 
@@ -81,11 +81,11 @@ limitations under the License.
        the shock absorbers are fully extended. axle_length is the distance
        from a U joint to the corresponding hex hub. wheel_travel is the
        vertical wheel travel. -->
-  <xacro:property name="wheelbase" value="0.335"/>
-  <xacro:property name="hex_hub_dist" value="0.365"/>
+  <xacro:property name="wheelbase" value="0.087"/>
+  <xacro:property name="hex_hub_dist" value="0.125"/>
   <xacro:property name="axle_length" value="0.03"/>
-  <xacro:property name="wheel_travel" value="0.084"/>
-  <xacro:property name="shock_z_offset" value="0.0655"/>
+  <xacro:property name="wheel_travel" value="0.0"/>
+  <xacro:property name="shock_z_offset" value="0.0"/>
 
   <!-- shock_eff_limit is 2 * ((shock_stroke / 2) * shock_spring_constant) N.
        shock_stroke is 0.028575 meters. shock_spring_constant, an approximation
@@ -108,7 +108,7 @@ limitations under the License.
        max_speed = 40 mph (30+ mph) = 17.8816 m/s
        axle_vel_limit = (2 * pi) * (max_speed / (pi * tire_dia)) =
          244.8696 rad/s -->
-  <xacro:property name="axle_eff_limit" value="5.12766"/>
+  <xacro:property name="axle_eff_limit" value="5"/>
   <xacro:property name="axle_vel_limit" value="244.8696"/>
 
   <!-- These constants are used to simulate a Traxxas 2056 servo operated at
@@ -286,8 +286,7 @@ limitations under the License.
     <link name="${lr_prefix}_${fr_prefix}_wheel">
       <visual>
         <origin xyz="0
-                     ${lr_reflect * (axle_length - (tire_width /
-                     2 - hex_hub_depth))}
+                     0
                      0"/>
         <geometry>
           <cylinder radius="${tire_dia / 2}" length="${tire_width}"/>
@@ -297,13 +296,17 @@ limitations under the License.
 
       <collision>
         <origin xyz="0
-                     ${lr_reflect * (axle_length - (tire_width /
-                     2 - hex_hub_depth))}
+                     0
                      0"/>
         <geometry>
           <cylinder radius="${tire_dia / 2}" length="${tire_width}"/>
         </geometry>
       </collision>
+      <gazebo>
+        <mu1>1</mu1> <!-- 静摩擦系数 -->
+        <mu2>0.7</mu2> <!-- 动摩擦系数 -->
+        <min_depth>0.001</min_depth>
+      </gazebo>
 
       <xacro:thick_walled_tube_inertial
           inner_rad="${hub_dia / 2}" outer_rad="${tire_dia / 2}"
@@ -394,6 +397,14 @@ limitations under the License.
     </gazebo>
   </xacro:macro>
 
+  <!-- <link name="world"/>
+
+  <joint name="fixed_world" type="fixed">
+    <parent link="world"/>
+    <child link="base_footprint"/>
+    <origin xyz="0.0 0.0 0.5"/>
+  </joint> -->
+
   <link name="base_footprint"/>
   <!-- base_link must have geometry so that its axes can be displayed in
        rviz. -->
@@ -448,8 +459,8 @@ limitations under the License.
   </joint>
 
   <!-- Batteries -->
-  <xacro:battery prefix="left" reflect="1"/>
-  <xacro:battery prefix="right" reflect="-1"/>
+  <!-- <xacro:battery prefix="left" reflect="1"/>
+  <xacro:battery prefix="right" reflect="-1"/> -->
 
   <!-- Wheels -->
   <xacro:front_wheel lr_prefix="left" fr_prefix="front"
@@ -470,7 +481,7 @@ limitations under the License.
   </gazebo>
 
   <!-- layers -->
-  <xacro:layer layer="platform" parent="chassis" m="${layer_mass}" x="${layer_x}" y="${layer_y}" z="${layer_z}">
+  <!-- <xacro:layer layer="platform" parent="chassis" m="${layer_mass}" x="${layer_x}" y="${layer_y}" z="${layer_z}">
     <origin xyz="0 0 ${layer_height}" rpy="0 0 0" />
   </xacro:layer>
 
@@ -500,5 +511,5 @@ limitations under the License.
     <child link="camera_link"/>
   </joint>
 
-  <camera prefix="camera"/>
+  <camera prefix="camera"/> -->
 </robot>

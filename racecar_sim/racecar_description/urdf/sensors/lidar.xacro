@@ -64,5 +64,6 @@
         </gazebo>
 
     </xacro:macro>
+    <xacro:lidar prefix="laser"/>
 
 </robot>

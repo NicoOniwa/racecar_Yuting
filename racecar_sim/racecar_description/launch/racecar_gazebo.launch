@@ -13,8 +13,8 @@
 
 	<!--运行gazebo仿真环境-->
 	<include file="$(find gazebo_ros)/launch/empty_world.launch">
-               <!-- .world文件的地址-->
-    	</include>
+        <arg name="world_name" value="$(find racecar_description)/worlds/racecar.world"/>   <!-- .world文件的地址-->
+    </include>
 
 	<!-- 加载机器人模型描述参数 -->
 	<param name="robot_description" command="$(find xacro)/xacro --inorder '$(find racecar_description)/urdf/racecar.urdf.xacro'"/>
@@ -32,7 +32,7 @@
 
 
 	 <!-- 从yaml文件加载联合控制器的参数 -->
-	<rosparam file="$(find bringup)/config/ctrl.yaml" command="load"/>
+	<rosparam file="$(find racecar_description)/config/ctrl.yaml" command="load"/>
 	
 	<!-- 加载控制器 spawner -->
 	<node name="controller_manager" pkg="controller_manager" type="spawner" 
