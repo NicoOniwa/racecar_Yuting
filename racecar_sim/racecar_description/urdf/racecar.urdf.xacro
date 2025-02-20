@@ -51,7 +51,7 @@ limitations under the License.
   <xacro:property name="chassis_length" value="0.16"/>
   <xacro:property name="chassis_width" value="0.04"/>
   <xacro:property name="chassis_height" value="0.01"/>
-  <xacro:property name="chassis_mass" value="5.788"/>
+  <xacro:property name="chassis_mass" value="10.788"/>
 
   <!-- battery_dist is the distance between the inner edges of the
        batteries. battery_comp_depth is the battery compartment depth.
@@ -71,19 +71,19 @@ limitations under the License.
        inset from the outer edge of the tire. It is set so that each wheel
        is a "zero offset" wheel. hex_hub_depth = tire_width / 2 -
        axle_length. -->
-  <xacro:property name="hub_dia" value="0.09652"/>
+  <xacro:property name="hub_dia" value="0.0"/>
   <xacro:property name="tire_dia" value="0.047"/>
   <xacro:property name="tire_width" value="0.03"/>
-  <xacro:property name="hex_hub_depth" value="0.01445"/>
+  <xacro:property name="hex_hub_depth" value="0.0"/>
   <xacro:property name="wheel_mass" value="0.29"/>
 
   <!-- hex_hub_dist is the distance between left and right hex hubs when
        the shock absorbers are fully extended. axle_length is the distance
        from a U joint to the corresponding hex hub. wheel_travel is the
        vertical wheel travel. -->
-  <xacro:property name="wheelbase" value="0.087"/>
+  <xacro:property name="wheelbase" value="0.174"/>
   <xacro:property name="hex_hub_dist" value="0.125"/>
-  <xacro:property name="axle_length" value="0.03"/>
+  <xacro:property name="axle_length" value="0.00"/>
   <xacro:property name="wheel_travel" value="0.0"/>
   <xacro:property name="shock_z_offset" value="0.0"/>
 
@@ -230,7 +230,7 @@ limitations under the License.
   <!-- Shock absorber -->
   <xacro:macro name="shock"
                params="lr_prefix fr_prefix lr_reflect fr_reflect child">
-    <joint name="${lr_prefix}_${fr_prefix}_shock" type="prismatic">
+    <joint name="${lr_prefix}_${fr_prefix}_shock" type="fixed">
       <parent link="chassis"/>
       <child link="${child}"/>
 
@@ -241,18 +241,16 @@ limitations under the License.
       <limit lower="${-wheel_travel / 2}" upper="${wheel_travel / 2}"
              effort="${shock_eff_limit}" velocity="${shock_vel_limit}"/>
     </joint>
-    <transmission name="${lr_prefix}_${fr_prefix}_shock_trans">
+    <!-- <transmission name="${lr_prefix}_${fr_prefix}_shock_trans">
       <type>transmission_interface/SimpleTransmission</type>
       <joint name="${lr_prefix}_${fr_prefix}_shock">
         <hardwareInterface>hardware_interface/EffortJointInterface</hardwareInterface>
       </joint>
       <actuator name="${lr_prefix}_${fr_prefix}_shock_act">
-        <!-- This hardwareInterface element exists for compatibility
-             with ROS Hydro. -->
         <hardwareInterface>hardware_interface/EffortJointInterface</hardwareInterface>
         <mechanicalReduction>1</mechanicalReduction>
       </actuator>
-    </transmission>
+    </transmission> -->
   </xacro:macro>
 
   <!-- The "wheel" macro defines an axle carrier, axle, and wheel. -->
@@ -304,7 +302,7 @@ limitations under the License.
       </collision>
       <gazebo>
         <mu1>1</mu1> <!-- 静摩擦系数 -->
-        <mu2>0.7</mu2> <!-- 动摩擦系数 -->
+        <mu2>1</mu2> <!-- 动摩擦系数 -->
         <min_depth>0.001</min_depth>
       </gazebo>
 
@@ -397,13 +395,13 @@ limitations under the License.
     </gazebo>
   </xacro:macro>
 
-  <link name="world"/>
+  <!-- <link name="world"/>
 
   <joint name="fixed_world" type="fixed">
     <parent link="world"/>
     <child link="base_footprint"/>
     <origin xyz="0.0 0.0 0.5"/>
-  </joint>
+  </joint> -->
 
   <link name="base_footprint"/>
   <!-- base_link must have geometry so that its axes can be displayed in

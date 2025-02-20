@@ -1,0 +1,10 @@
+<launch>
+  <!-- 启动EKF节点 -->
+  <node pkg="robot_localization" type="ekf_localization_node" name="ekf_filter_node">
+    <rosparam command="load" file="$(find racecar_description)/config/ekf.yaml"/>
+    <remap from="odometry/filtered" to="/odometry/filtered"/>
+  </node>
+  
+  <!-- 启动轮式里程计节点（之前编写的ackermann_odom.py） -->
+  <node pkg="racecar_description" type="odom_wheel_encoder.py" name="ackermann_odom_node"/>
+</launch>
