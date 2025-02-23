@@ -1,2 +1,0 @@
-sensor_msgs/NavSatFix ins_data
-geometry_msgs/Vector3  body_linear
