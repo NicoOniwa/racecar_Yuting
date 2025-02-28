@@ -14,7 +14,7 @@ odom0_relative: false      # 是否为相对初始位置的相对数据
 
 imu0: /imu_data  # 🌟 指向原始IMU话题名
 imu0_config: [false, false, false,    # 不使用位置
-                true,  true,  false,    # 使用IMU的姿态，但仅信任 Roll 和 Pitch（Yaw 由轮式里程计主导）
+                true,  true,  true,    # 使用IMU的姿态，但仅信任 Roll 和 Pitch（Yaw 由轮式里程计主导）
                 false, false, false,    # 不线速度
                 true,  true,  true,     # 使用角速度
                 true,  true,  false]     # 使用线加速度
@@ -45,7 +45,7 @@ process_noise_covariance: [0.05, 0,    0,    0,    0,    0,   0,   0,   0,   0, 
                               0,    0,    0,    0,    0,    0,   0,   0,   0,   0,   0,   0,   0,   0,   0.015]
 
   # 输出话题和坐标系
-map_frame: map          # 全局地图坐标系（无地图用odom）
+# map_frame: map          # 全局地图坐标系（无地图用odom）
 odom_frame: odom        # 里程计坐标系
 base_link_frame: base_footprint  # 车体坐标系
 world_frame: odom       # 相对初始位置的世界坐标系

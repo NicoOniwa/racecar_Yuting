@@ -21,7 +21,7 @@ class AckermannOdom:
         # 发布里程计
         self.odom_pub = rospy.Publisher("/odom", Odometry, queue_size=10)
         # TF广播器（odom坐标系->base_footprint）
-        self.tf_broadcaster = tf.TransformBroadcaster()
+        # self.tf_broadcaster = tf.TransformBroadcaster()
         
         # 状态变量
         self.x = 0.0     # 位置x (meters)
@@ -112,13 +112,13 @@ class AckermannOdom:
         self.odom_pub.publish(odom)
         
         #=== 广播TF ===#
-        self.tf_broadcaster.sendTransform(
-            (self.x, self.y, 0),
-            quat,
-            current_time,
-            "base_footprint",
-            "odom"
-        )
+        # self.tf_broadcaster.sendTransform(
+        #     (self.x, self.y, 0),
+        #     quat,
+        #     current_time,
+        #     "base_footprint",
+        #     "odom"
+        # )
         
         # 更新时间记录
         self.last_time = current_time
