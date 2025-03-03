@@ -1,0 +1,47 @@
+<?xml version="1.0"?>
+<launch>
+    <!-- publish static transform -->
+    <node pkg="tf2_ros" type="static_transform_publisher" name="map_to_odom_capture_frame" 
+          args="0 0 0 0 0 0 map odom_capture_frame" />
+    <!-- Arguments that can be overridden from command line -->
+    <arg name="buffer_size" default="20" />
+    <arg name="interpolation_points" default="100" />
+    <arg name="publish_rate" default="20" /> <!-- Hz -->
+    <arg name="frame_id" default="odom_capture_frame" />
+    <arg name="startup_delay" default="5.0" /> <!-- seconds to wait before starting publisher -->
+    <arg name="use_rviz" default="true"/>
+    
+    <!-- Load parameters to parameter server -->
+    <param name="buffer_size" value="$(arg buffer_size)" />
+    <param name="interpolation_points" value="$(arg interpolation_points)" />
+    <param name="frame_id" value="$(arg frame_id)" />
+    
+    <!-- Launch trajectory smoother node first -->
+    <!-- <node name="trajectory_smoother" pkg="traj_analyzer" type="traj_smoother" output="screen" required="true">
+        <param name="buffer_size" value="$(arg buffer_size)" />
+        <param name="interpolation_points" value="$(arg interpolation_points)" />
+        <param name="frame_id" value="$(arg frame_id)" />
+    </node> -->
+    
+    <!-- Launch trajectory publisher node with a delay to ensure smoother is ready -->
+    <node name="trajectory_publisher" pkg="traj_analyzer" type="traj_publisher" 
+          output="screen" launch-prefix="bash -c 'sleep $(arg startup_delay); $0 $@'">
+        <param name="publish_rate" value="$(arg publish_rate)" />
+        <param name="frame_id" value="$(arg frame_id)" />
+    </node>
+    
+    <!-- Launch trajectory visualizer node -->
+    <node name="trajectory_visualizer" pkg="traj_analyzer" type="trajectory_visualizer" output="screen">
+        <param name="frame_id" value="$(arg frame_id)" />
+        <param name="point_size" value="0.2" />
+        <param name="line_width" value="0.05" />
+    </node>
+    
+    <!-- Launch RViz with our configuration -->
+    <group if="$(arg use_rviz)">
+        <node name="rviz" pkg="rviz" type="rviz" args="-d $(find traj_analyzer)/rviz/traj_visualization.rviz" />
+    </group>
+    
+    <!-- Remap topics if needed -->
+    <!-- Example: <remap from="raw_trajectory" to="vehicle/trajectory/raw" /> -->
+</launch>
