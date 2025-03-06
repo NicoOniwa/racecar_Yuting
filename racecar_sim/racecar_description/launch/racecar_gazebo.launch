@@ -49,6 +49,13 @@
 
 
 	<node pkg="racecar_description" type="servo_commands_twist.py" name="servo_commands" output="screen">
+
+	<!-- <node pkg="topic_tools" type="relay" name="odom2pose_relay">
+		<param name="input_topic" value="/ground_truth/pose"/>
+		<param name="output_topic" value="/pose_stamped"/>
+		<param name="type" value="nav_msgs/Odometry:geometry_msgs/PoseStamped"/>
+	</node> -->
 	</node>
+
 
 </launch>

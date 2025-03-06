@@ -40,6 +40,7 @@ limitations under the License.
   <!-- include sensors -->
   <!-- <xacro:include filename="$(find racecar_description)/urdf/sensors/lidar.xacro" /> -->
   <xacro:include filename="$(find racecar_description)/urdf/sensors/imu.xacro" />
+  <xacro:include filename="$(find racecar_description)/urdf/sensors/p3d.xacro" />
   <!-- <xacro:include filename="$(find racecar_description)/urdf/sensors/camera.xacro" /> -->
 
   <!-- Degree-to-radian conversions -->
@@ -502,6 +503,7 @@ limitations under the License.
   </joint>
 
   <!-- <imu prefix="imu"/> -->
+  <xacro:p3d prefix="p3d"/>
 
   <!-- <joint name="camera_joint" type="fixed">
     <origin xyz="0.16 0 0.05" rpy="0 0 0" />

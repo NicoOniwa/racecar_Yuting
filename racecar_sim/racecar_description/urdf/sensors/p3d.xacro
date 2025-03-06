@@ -1,0 +1,61 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="p3d_sensor">
+
+    <xacro:macro name="p3d" params="prefix:=ground_truth 
+                                  parent_link:=base_link 
+                                  xyz:='0 0 0' 
+                                  rpy:='0 0 0'
+                                  update_rate:=100
+                                  topic:=/ground_truth/pose
+                                  frame_id:=world">
+        <!-- 定义 p3d 的链路结构和传感器 -->
+        <link name="${prefix}_link">
+            <inertial>
+                <mass value="0.001" />
+                <origin xyz="0 0 0" />
+                <inertia 
+                    ixx="0.001" ixy="0.0" ixz="0.0"
+                    iyy="0.001" iyz="0.0"
+                    izz="0.001" />
+            </inertial>
+
+            <visual>
+                <geometry>
+                    <sphere radius="0.02"/> <!-- 更紧凑的显示 -->
+                </geometry>
+                <material name="Green"/>
+            </visual>
+
+            <collision>
+                <geometry>
+                    <sphere radius="0.001"/> <!-- 最小化碰撞体积 -->
+                </geometry>
+            </collision>
+        </link>
+
+        <!-- 将传感器与车体连接 -->
+        <joint name="${prefix}_joint" type="fixed">
+            <parent link="${parent_link}"/>
+            <child link="${prefix}_link"/>
+            <origin xyz="${xyz}" rpy="${rpy}"/>
+        </joint>
+
+    <!-- 修正后的插件配置 -->
+    <gazebo>
+        <plugin name="p3d_base_controller" filename="libgazebo_ros_p3d.so">
+            <alwaysOn>true</alwaysOn>
+            <updateRate>100.0</updateRate>
+            <bodyName>base_link</bodyName>
+            <topicName>${topic}</topicName>
+            <gaussianNoise>0.0</gaussianNoise>
+            <frameName>world</frameName>
+            <xyzOffsets>0 0 0</xyzOffsets>
+            <rpyOffsets>0 0 0</rpyOffsets>
+            </plugin>
+    </gazebo>
+
+
+
+    </xacro:macro>
+
+</robot>

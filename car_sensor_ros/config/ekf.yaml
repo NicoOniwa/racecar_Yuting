@@ -1,0 +1,66 @@
+# ekf.yaml
+frequency: 100.0  # 融合频率（HZ）
+sensor_timeout: 0.1  # 传感器超时时间（秒）
+  
+  # 输入话题及坐标系配置
+# odom0: /odom  # 轮式里程计话题
+# odom0_config: [false,  false,  false,   # X, Y, Z 位置
+#                  false, false, false,    # Roll, Pitch, Yaw 角度
+#                  true,  true,  false,   # X速度, Y速度, Z速度
+#                  false, false, false,    # Roll速率, Pitch速率, Yaw速率
+#                  false, false, false]   # 加速度（不使用里程计的加速度）
+# odom0_differential: false  # 是否为差分数据（里程计需设为False）
+# odom0_relative: false      # 是否为相对初始位置的相对数据
+
+imu0: /imu_data  # 🌟 指向原始IMU话题名
+imu0_config: [false, false, false,    # 不使用位置
+                true,  true,  true,    # 使用IMU的姿态，但仅信任 Roll 和 Pitch（Yaw 由轮式里程计主导）
+                false, false, false,    # 不线速度
+                true,  true,  true,     # 使用角速度
+                true,  true,  false]     # 使用线加速度
+imu0_remove_gravity: false             # 🌟 去掉重力影响（原始数据通常含重力分量）
+imu0_relative: false
+
+pose0: /vrpn_client_node/RigidBody/offset_pose
+pose0_config: [true,  true,  true,
+               true, true, true,
+               false, false, false,
+               false, false, false,
+               false, false, false]
+pose0_differential: false
+pose0_relative: false
+pose0_queue_size: 5
+pose0_rejection_threshold: 2  # Note the difference in parameter name
+pose0_nodelay: false
+
+  # 初始状态协方差矩阵（较小的值加快收敛）
+initial_state: [0.0, 0.0, 0.0,  # 初始位置 X/Y/Z
+                  0.0, 0.0, 0.0,  # 初始姿态 R/P/Y
+                  0.0, 0.0, 0.0,  # 初始速度
+                  0.0, 0.0, 0.0,  # 初始角速度
+                  0.0, 0.0, 0.0]  # 初始加速度
+
+process_noise_covariance: [0.05, 0,    0,    0,    0,    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                              0,    0.05, 0,    0,    0,    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                              0,    0,    0.06, 0,    0,    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                              0,    0,    0,    0.03, 0,    0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                              0,    0,    0,    0,    0.03, 0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+                              0,    0,    0,    0,    0,    0.1, 0,   0,   0,   0,   0,   0,   0,   0,   0,
+                              0,    0,    0,    0,    0,    0,   0.25,0,   0,   0,   0,   0,   0,   0,   0,
+                              0,    0,    0,    0,    0,    0,   0,   0.25,0,   0,   0,   0,   0,   0,   0,
+                              0,    0,    0,    0,    0,    0,   0,   0,   0.04,0,   0,   0,   0,   0,   0,
+                              0,    0,    0,    0,    0,    0,   0,   0,   0,   0.01,0,   0,   0,   0,   0,
+                              0,    0,    0,    0,    0,    0,   0,   0,   0,   0,   0.01,0,   0,   0,   0,
+                              0,    0,    0,    0,    0,    0,   0,   0,   0,   0,   0,   0.02,0,   0,   0,
+                              0,    0,    0,    0,    0,    0,   0,   0,   0,   0,   0,   0,   0.01,0,   0,
+                              0,    0,    0,    0,    0,    0,   0,   0,   0,   0,   0,   0,   0,   0.01,0,
+                              0,    0,    0,    0,    0,    0,   0,   0,   0,   0,   0,   0,   0,   0,   0.015]
+
+  # 输出话题和坐标系
+# map_frame: map          # 全局地图坐标系（无地图用odom）
+odom_frame: odom        # 里程计坐标系
+base_link_frame: base_footprint  # 车体坐标系
+world_frame: odom       # 相对初始位置的世界坐标系
+
+publish_tf: true         # 发布 TF 变换
+tf_time_offset: 0.0

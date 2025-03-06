@@ -2,7 +2,7 @@
 import rospy
 import numpy as np
 import tf2_ros
-from geometry_msgs.msg import PoseStamped, TransformStamped
+from geometry_msgs.msg import PoseStamped, TransformStamped, PoseWithCovarianceStamped
 from tf2_geometry_msgs import do_transform_pose
 
 class VRPNProcessor:
@@ -19,6 +19,9 @@ class VRPNProcessor:
         # 初始化标志物初始位置采集
         self.marker_positions = []           
         self.initial_marker_pose = None      
+
+        # 初始化协方差矩阵参数
+        self.covariance = self._load_covariance()
         
         # TF相关对象（分离静态/动态广播器）
         self.tf_buffer = tf2_ros.Buffer(cache_time=rospy.Duration(10))
@@ -35,7 +38,20 @@ class VRPNProcessor:
         self.required_samples = rospy.get_param('~initial_samples', 10) 
 
         # 发布转换后的位姿话题
-        self.pose_pub = rospy.Publisher('/vrpn_client_node/RigidBody/offset_pose', PoseStamped, queue_size=10)
+        self.pose_pub = rospy.Publisher('/vrpn_client_node/RigidBody/offset_pose', PoseWithCovarianceStamped, queue_size=10)
+
+    def _load_covariance(self):
+        """从参数服务器加载协方差配置"""
+        covariance_diag = rospy.get_param('~covariance_diagonal',
+                                         [0.1, 0.1, 0.1, 0.05, 0.05, 0.05])  # x,y,z,rot(x),rot(y),rot(z)
+        
+        # 构造6x6对角线协方差矩阵（行主序展开）
+        covariance = [0.0]*36
+        indices = [0,7,14,21,28,35]  # 对角线位置索引
+        for i, val in zip(indices, covariance_diag):
+            covariance[i] = float(val)
+            
+        return covariance
         
     def marker_callback(self, msg):
         """处理标志物话题完成初始坐标系标定"""
@@ -65,13 +81,10 @@ class VRPNProcessor:
             rospy.loginfo("初始化完成：odom坐标系已标定")
             
     def car_callback(self, msg):
-        """处理小车位姿并发布动态odom->base_footprint变换"""
-        if self.initial_marker_pose is None:
-            rospy.logwarn_throttle(5.0, "等待标定完成...")  # 添加节流避免日志刷屏
+        if self.initial_marker_pose is None: 
             return
             
         try:
-            # ★★★获取world到odom的静态变换
             static_transform = self.tf_buffer.lookup_transform(
                 target_frame=self.odom_frame,
                 source_frame=self.world_frame,
@@ -79,24 +92,26 @@ class VRPNProcessor:
                 timeout=rospy.Duration(0.5)
             )
             
-            # 转换小车位姿到odom坐标系
+            # 转换位姿
             car_pose_odom = do_transform_pose(msg, static_transform)
             
-            # 发布转换后的位姿话题
-            output_pose = PoseStamped()
-            output_pose.header.stamp = msg.header.stamp
+            # ★★★ 构造带协方差的位姿消息
+            output_pose = PoseWithCovarianceStamped()
+            output_pose.header.stamp = msg.header.stamp           # 保持原时间戳
             output_pose.header.frame_id = self.odom_frame
-            output_pose.pose = car_pose_odom.pose
+            output_pose.pose.pose = car_pose_odom.pose
+            output_pose.pose.covariance = self.covariance          # 添加协方差
+            
             self.pose_pub.publish(output_pose)
             
             # ★★★构建并发布动态odom->base_footprint变换
-            dynamic_tf = TransformStamped()
-            dynamic_tf.header.stamp = msg.header.stamp  # 时间戳与原数据同步
-            dynamic_tf.header.frame_id = self.odom_frame
-            dynamic_tf.child_frame_id = self.car_frame
-            dynamic_tf.transform.translation = output_pose.pose.position
-            dynamic_tf.transform.rotation = output_pose.pose.orientation
-            self.dynamic_tf_broadcaster.sendTransform(dynamic_tf)
+            # dynamic_tf = TransformStamped()
+            # dynamic_tf.header.stamp = msg.header.stamp  # 时间戳与原数据同步
+            # dynamic_tf.header.frame_id = self.odom_frame
+            # dynamic_tf.child_frame_id = self.car_frame
+            # dynamic_tf.transform.translation = output_pose.pose.pose.position
+            # dynamic_tf.transform.rotation = output_pose.pose.pose.orientation
+            # self.dynamic_tf_broadcaster.sendTransform(dynamic_tf)
             
         except (tf2_ros.LookupException, tf2_ros.ExtrapolationException) as e:
             rospy.logwarn_throttle(1.0, f"坐标变换异常: {str(e)}")
