@@ -140,12 +140,12 @@ public:
             ROS_WARN("Trajectory points are empty, cannot update FIFO");
             return;
         }
-        
+        int middle_point_idx = fifo_buffer_.size() / 2;
         // Check if the trajectory has been updated
         if (current_traj_idx_ >= all_trajectory_points_.size() && 
-            fifo_buffer_.size() > 100 && 
-            fifo_buffer_[100].x == all_trajectory_points_.back().x && 
-            fifo_buffer_[100].y == all_trajectory_points_.back().y) {
+            fifo_buffer_.size() > middle_point_idx && 
+            fifo_buffer_[middle_point_idx].x == all_trajectory_points_.back().x && 
+            fifo_buffer_[middle_point_idx].y == all_trajectory_points_.back().y) {
             ROS_INFO_ONCE("Reached the end of trajectory and middle point is the last trajectory point, stopping updates");
             return;  // When the middle point is the last trajectory point, stop updating
         }
@@ -171,8 +171,8 @@ public:
         }
         
         // Publish cmd_ref_trajectory (101st line of FIFO)
-        if (fifo_buffer_.size() > 100) {
-            cmd_ref_traj_pub_.publish(fifo_buffer_[100]);
+        if (fifo_buffer_.size() > middle_point_idx) {
+            cmd_ref_traj_pub_.publish(fifo_buffer_[middle_point_idx]);
         }
         
         // If current position is received, find and publish the nearest point
