@@ -3,7 +3,7 @@
     <node name="odom_to_pose_transform" 
         pkg="topic_tools" 
         type="transform"
-        args="/ground_truth/pose /vrpn/pose geometry_msgs/PoseStamped 
+        args="/ground_truth/pose /vrpn_client_node/RigidBody/pose geometry_msgs/PoseStamped 
              'geometry_msgs.msg.PoseStamped(
                  header=std_msgs.msg.Header(stamp=m.header.stamp, frame_id=m.header.frame_id),
                  pose=m.pose.pose
@@ -16,7 +16,9 @@
     <remap from="odometry/filtered" to="/odometry/filtered"/>
   </node>
   
-  <!-- 启动轮式里程计节点（之前编写的ackermann_odom.py） -->
-  <node pkg="racecar_description" type="odom_wheel_encoder.py" name="ackermann_odom_node"/>
+  <!-- 修正包名为car_sensor_ros（原racecar_description包中无此节点） -->
+  <node pkg="car_sensor_ros" type="odom_wheel_encoder.py" name="ackermann_odom_node"/>
+  
+  <!-- 保持vrpn处理节点（根据file_context_2确认存在） -->
   <node pkg="car_sensor_ros" type="vrpn_processor.py" name="vrpn_processor_node"/>
 </launch>

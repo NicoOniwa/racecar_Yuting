@@ -7,7 +7,10 @@ Panels:
         - /Global Options1
         - /Status1
         - /Grid1
-        - /RawTrajectory1
+        - /CommandTrajectory1
+        - /LateralReference1
+        - /VelocityArrows1
+        - /TF1
       Splitter Ratio: 0.5
     Tree Height: 728
   - Class: rviz/Selection
@@ -53,18 +56,51 @@ Visualization Manager:
     
     - Class: rviz/Marker
       Enabled: true
-      Marker Topic: /raw_trajectory_markers
-      Name: RawTrajectory
+      Marker Topic: /cmd_traj_markers
+      Name: CommandTrajectory
       Namespaces:
         {}
       Queue Size: 100
+      Value: true
+      
+    - Class: rviz/Marker
+      Enabled: true
+      Marker Topic: /lateral_ref_marker
+      Name: LateralReference
+      Namespaces:
+        {}
+      Queue Size: 100
+      Value: true
+      
+    - Class: rviz/Marker
+      Enabled: true
+      Marker Topic: /velocity_markers
+      Name: VelocityArrows
+      Namespaces:
+        {}
+      Queue Size: 100
+      Value: true
+      
+    - Class: rviz/TF
+      Enabled: true
+      Frame Timeout: 15
+      Frames:
+        All Enabled: true
+      Marker Scale: 3
+      Name: TF
+      Show Arrows: true
+      Show Axes: true
+      Show Names: true
+      Tree:
+        {}
+      Update Interval: 0
       Value: true
 
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48
     Default Light: true
-    Fixed Frame: odom_capture_frame
+    Fixed Frame: world
     Frame Rate: 30
   Name: root
   Tools:

@@ -4,8 +4,7 @@ import roslib
 import rospy
 
 from sensor_msgs.msg import Joy
-from geometry_msgs.msg import Twist
-
+from geometry_msgs.msg import Twist, TwistStamped
 class Teleop:
     def __init__(self):
         rospy.init_node('teleop_joy')
@@ -15,7 +14,7 @@ class Teleop:
 
         self.active = 0
         self.cmd = Twist()
-        self.cmd_pub = rospy.Publisher('/vel_and_steering', Twist,queue_size=10)
+        self.cmd_pub = rospy.Publisher('/vel_and_steering', TwistStamped,queue_size=10)
 
         rospy.Subscriber("joy", Joy, self.callback)
         rate = rospy.Rate(rospy.get_param('~hz', 20))

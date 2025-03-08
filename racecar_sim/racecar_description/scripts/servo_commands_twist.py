@@ -5,7 +5,7 @@ import math
 from std_msgs.msg import Bool
 from std_msgs.msg import Float32
 from std_msgs.msg import Float64
-from geometry_msgs.msg import Twist
+from geometry_msgs.msg import TwistStamped
 from ackermann_msgs.msg import AckermannDriveStamped
  
  
@@ -25,7 +25,7 @@ def limsteer(data, maxdata):
  
  
 # 接受 ackermann_msgs/AckermannDriveStamped 类型的消息 控制 阿克曼小车模型四个轮子的速度和前轮转角
-def set_throttle_steer(data):
+def set_throttle_steer(data:TwistStamped):
 
     pub_vel_left_rear_wheel = rospy.Publisher('/racecar/left_rear_wheel_velocity_controller/command', Float64, queue_size=1)
     pub_vel_right_rear_wheel = rospy.Publisher('/racecar/right_rear_wheel_velocity_controller/command', Float64, queue_size=1)
@@ -35,8 +35,8 @@ def set_throttle_steer(data):
     pub_pos_left_steering_hinge = rospy.Publisher('/racecar/left_steering_hinge_position_controller/command', Float64, queue_size=1)
     pub_pos_right_steering_hinge = rospy.Publisher('/racecar/right_steering_hinge_position_controller/command', Float64, queue_size=1)
 
-    throttle = data.linear.x/0.047*2
-    steer = data.angular.z
+    throttle = data.twist.linear.x/0.047*2
+    steer = data.twist.angular.z
 
     pub_vel_left_rear_wheel.publish(throttle)
     pub_vel_right_rear_wheel.publish(throttle)
@@ -57,7 +57,7 @@ def set_throttle_steer(data):
  
  
 # 将 geometry_msgs/Twist 类型的消息 转换为 阿克曼小车模型四个轮子的速度和前轮转角
-def set_speed(data):
+def set_speed(data:TwistStamped):
     global L, B_f, B_r, max_rad
     
     pub_vel_left_rear_wheel = rospy.Publisher('/racecar/left_rear_wheel_velocity_controller/command', Float64, queue_size=1)
@@ -68,8 +68,8 @@ def set_speed(data):
     pub_pos_left_steering_hinge = rospy.Publisher('/racecar/left_steering_hinge_position_controller/command', Float64, queue_size=1)
     pub_pos_right_steering_hinge = rospy.Publisher('/racecar/right_steering_hinge_position_controller/command', Float64, queue_size=1)
     
-    v = data.linear.x  
-    w = data.angular.z
+    v = data.twist.linear.x  
+    w = data.twist.angular.z
  
     if v != 0 and w != 0:
         # r 为理想的中间轮胎的转弯半径
@@ -130,7 +130,7 @@ def servo_commands():
     rospy.init_node('servo_commands', anonymous=True)
  
     # rospy.Subscriber("/ackermann_cmd", AckermannDriveStamped, set_throttle_steer) 
-    rospy.Subscriber("/vel_and_steering", Twist, set_throttle_steer)
+    rospy.Subscriber("/vel_and_steering", TwistStamped, set_throttle_steer)
  
     rospy.spin()
  

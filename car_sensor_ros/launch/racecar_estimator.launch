@@ -11,12 +11,23 @@
              --import geometry_msgs std_msgs"
         output="screen"/>
 
+      <node name="odom_to_pose_transform_marker" 
+        pkg="topic_tools" 
+        type="transform"
+        args="/ground_truth/pose /vrpn_client_node/Marker/pose geometry_msgs/PoseStamped 
+             'geometry_msgs.msg.PoseStamped(
+                 header=std_msgs.msg.Header(stamp=m.header.stamp, frame_id=m.header.frame_id),
+                 pose=m.pose.pose
+             )'
+             --import geometry_msgs std_msgs"
+        output="screen"/>
+
   <node pkg="robot_localization" type="ekf_localization_node" name="ekf_filter_node">
     <rosparam command="load" file="$(find car_sensor_ros)/config/ekf.yaml"/>
     <remap from="odometry/filtered" to="/odometry/filtered"/>
   </node>
   
   <!-- 启动轮式里程计节点（之前编写的ackermann_odom.py） -->
-  <!-- <node pkg="racecar_description" type="odom_wheel_encoder.py" name="ackermann_odom_node"/> -->
-  <node pkg="car_sensor_ros" type="vrpn_processor.py" name="vrpn_processor_node"/>
+  <!-- <node pkg="car_sensor_ros" type="odom_wheel_encoder.py" name="ackermann_odom_node"/> -->
+  <node pkg="car_sensor_ros" type="vrpn_processor.py" name="vrpn_processor_node" output="screen"/>
 </launch>

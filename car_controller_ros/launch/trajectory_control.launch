@@ -1,14 +1,12 @@
 <?xml version="1.0"?>
 <launch>
     <!-- publish static transform -->
-    <node pkg="tf2_ros" type="static_transform_publisher" name="map_to_odom_capture_frame" 
-          args="0 0 0 0 0 0 map odom_capture_frame" />
           
     <!-- Arguments that can be overridden from command line -->
     <arg name="fifo_size" default="200" />
     <arg name="publish_rate" default="20" /> <!-- Hz -->
-    <arg name="frame_id" default="odom_capture_frame" />
-    <arg name="startup_delay" default="2.0" /> <!-- seconds to wait before starting publisher -->
+    <arg name="frame_id" default="world" />
+    <arg name="startup_delay" default="10.0" /> <!-- seconds to wait before starting publisher -->
     <arg name="use_rviz" default="false" /> 
     <arg name="traj_file_path" default="$(find traj_analyzer)/refine_traj_slow.txt" />
     <arg name="point_size" default="0.1" />
@@ -30,20 +28,12 @@
         <param name="publish_rate" value="$(arg publish_rate)" />
     </node>
     
-    <!-- Launch trajectory visualizer node -->
-    <!-- <node name="traj_visualizer" pkg="traj_analyzer" type="traj_visualizer" output="screen">
-        <param name="frame_id" value="$(arg frame_id)" />
-        <param name="point_size" value="$(arg point_size)" />
-        <param name="line_width" value="$(arg line_width)" />
-        <param name="arrow_scale" value="$(arg arrow_scale)" />
-        <param name="traj_display_length" value="$(arg traj_display_length)" />
-    </node> -->
-    
-    <!-- Launch RViz with our configuration -->
-    <group if="$(arg use_rviz)">
-        <node name="rviz" pkg="rviz" type="rviz" args="-d $(find traj_analyzer)/rviz/traj_visualization.rviz" />
-    </group>
-    
-    <!-- Remap topics if needed -->
-    <!-- Example: <remap from="cmd_ref_trajectory" to="vehicle/trajectory/cmd_ref" /> -->
+    <!-- 启动侧向控制器 -->
+    <node pkg="car_controller_ros" type="lateral_controller.py" name="lateral_controller" output="screen">
+        <param name="wheelbase" value="0.174"/>
+        <param name="control_rate" value="20.0"/>
+        <param name="max_steering_angle" value="25.0"/>
+        <param name="max_lateral_error" value="100"/>
+        <param name="max_heading_error" value="200.0"/>
+    </node>
 </launch>
