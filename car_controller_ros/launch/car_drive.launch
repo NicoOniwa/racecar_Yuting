@@ -1,0 +1,63 @@
+<?xml version="1.0"?>
+<launch>
+    <!-- control mode: "open_loop" or "pid" -->
+    <arg name="control_mode" default="pid"/>
+    <!-- wheel encoder port -->
+    <arg name="wheel_encoder_port" default="/dev/ttyUSB0"/>
+    
+    <!-- Load the URDF/XACRO model -->
+    <param name="robot_description" command="$(find xacro)/xacro '$(find thesis_car_drive)/urdf/car.urdf.xacro'" />
+    
+    <!-- Start the robot_state_publisher to publish TF -->
+    <node pkg="robot_state_publisher" type="robot_state_publisher" name="robot_state_publisher">
+        <param name="publish_frequency" type="double" value="50.0" />
+    </node>
+
+    <!-- Launch chassis control node - Open Loop version -->
+    <node if="$(eval control_mode == 'open_loop')" 
+          pkg="thesis_car_drive" 
+          type="jetracer_chassis_openloop.py" 
+          name="jetracer_chassis" 
+          output="screen">
+        <param name="Cmd_Timeout_Value" value="1.0"/>
+        <rosparam>
+            ESC_init_value: [1.1503,0.18,0.4]
+        </rosparam>
+        <param name="max_steering_angle" value="25.0"/>  <!-- degree-->
+        <param name="maxvel_mapping_throttle" value="5.0"/>
+    </node>
+    
+    <!-- Launch chassis control node - PID version -->
+    <node if="$(eval control_mode == 'pid')" 
+          pkg="thesis_car_drive" 
+          type="jetracer_chassis_pid.py" 
+          name="jetracer_chassis" 
+          output="screen">
+        <param name="Cmd_Timeout_Value" value="1.0"/>
+        <rosparam>
+            ESC_init_value: [1.1503,0.18,0.4]  <!--steering gain, steering offset, throttle gain-->
+        </rosparam>
+        <param name="max_steering_angle" value="25.0"/>  <!-- degree-->
+        <param name="maxvel_mapping_throttle" value="5.0"/>
+        <!-- PID parameters -->
+        <param name="pid_kp" value="0.3"/>
+        <param name="pid_ki" value="0.06"/>
+        <param name="pid_kd" value="0.2"/>
+        <param name="throttle_slope" value="18.2"/>
+        <param name="throttle_offset" value="2.17"/>
+        <param name="min_velocity" value="0.5"/>
+    </node>
+
+    <!-- Launch hall sensor node -->
+    <!-- This node handles serial communication with Arduino -->
+    <!-- Publishing topics: /encoder (wheel encoder ticks), /vel_est (velocity estimation) -->
+    <node pkg="rosserial_python" type="serial_node.py" name="sensor_hall" output="screen">
+        <param name="port" value="$(arg wheel_encoder_port)"/>
+        <param name="baud" value="115200"/>
+    </node>
+
+    <!-- Launch IMU processor node -->
+    <node pkg="thesis_car_drive" type="imu_processor.py" name="imu_processor" output="screen"/> 
+    
+</launch>
+

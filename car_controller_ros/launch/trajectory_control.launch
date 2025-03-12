@@ -3,10 +3,10 @@
     <!-- publish static transform -->
           
     <!-- Arguments that can be overridden from command line -->
-    <arg name="fifo_size" default="200" />
+    <arg name="fifo_size" default="400" />
     <arg name="publish_rate" default="20" /> <!-- Hz -->
     <arg name="frame_id" default="world" />
-    <arg name="startup_delay" default="10.0" /> <!-- seconds to wait before starting publisher -->
+    <arg name="startup_delay" default="60.0" /> <!-- seconds to wait before starting publisher -->
     <arg name="use_rviz" default="false" /> 
     <arg name="traj_file_path" default="$(find traj_analyzer)/refine_traj_slow.txt" />
     <arg name="point_size" default="0.1" />
@@ -28,12 +28,17 @@
         <param name="publish_rate" value="$(arg publish_rate)" />
     </node>
     
-    <!-- 启动侧向控制器 -->
+    <!-- Start lateral controller -->
     <node pkg="car_controller_ros" type="lateral_controller.py" name="lateral_controller" output="screen">
         <param name="wheelbase" value="0.174"/>
         <param name="control_rate" value="20.0"/>
         <param name="max_steering_angle" value="25.0"/>
         <param name="max_lateral_error" value="100"/>
-        <param name="max_heading_error" value="200.0"/>
+        <param name="max_heading_error" value="360.0"/>
+        <param name="enable_longitudinal_pid" value="true"/>
+        <param name="s_pid_p" value="0.1"/>
+        <param name="s_pid_i" value="0.0"/>
+        <param name="s_pid_d" value="0.0"/>
+        <param name="max_s_error" value="100.0"/>
     </node>
 </launch>

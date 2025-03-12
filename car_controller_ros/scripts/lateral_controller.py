@@ -7,6 +7,8 @@ from geometry_msgs.msg import TwistStamped
 from nav_msgs.msg import Odometry
 from traj_analyzer.msg import RefTraj
 from std_msgs.msg import Float64MultiArray, Float64, Bool
+from dynamic_reconfigure.server import Server
+from thesis_car_drive.cfg import LongitudePIDParamsConfig
 
 class LateralController:
     def __init__(self):
@@ -85,6 +87,22 @@ class LateralController:
         # Speed grid
         self.v_grid = np.linspace(1, 5, 20)
         
+        # Longitudinal PID control parameters
+        self.s_pid_p = rospy.get_param('~s_pid_p', 0.5)
+        self.s_pid_i = rospy.get_param('~s_pid_i', 0.1)
+        self.s_pid_d = rospy.get_param('~s_pid_d', 0.0)
+        self.s_error_sum = 0.0
+        self.prev_s_error = 0.0
+        self.max_s_error = rospy.get_param('~max_s_error', 1.0)  # Maximum s error
+        
+        # Switch to enable/disable longitudinal PID
+        self.enable_longitudinal_pid = rospy.get_param('~enable_longitudinal_pid', True)
+        
+        # Trajectory update checking
+        self.last_cmd_ref_timestamp = 0
+        self.last_lateral_ref_timestamp = 0
+        self.traj_timeout = rospy.get_param('~traj_timeout', 0.5)  # Trajectory timeout (seconds)
+        
         # Subscribe topics
         rospy.Subscriber("cmd_ref_trajectory", RefTraj, self.cmd_ref_callback)
         rospy.Subscriber("lateral_ref", RefTraj, self.lateral_ref_callback)
@@ -94,17 +112,21 @@ class LateralController:
         rospy.Subscriber("/estop", Bool, self.estop_callback)
         
         # Publish topics
-        self.cmd_pub = rospy.Publisher("vel_and_steering", TwistStamped, queue_size=10)
-        self.state_pub = rospy.Publisher("lateral_controller_state", Float64MultiArray, queue_size=10)
-        self.estop_pub = rospy.Publisher("/estop", Bool, queue_size=10)
+        self.cmd_pub = rospy.Publisher("vel_and_steering", TwistStamped, queue_size=1)
+        self.state_pub = rospy.Publisher("lateral_controller_state", Float64MultiArray, queue_size=1)
+        self.estop_pub = rospy.Publisher("/estop", Bool, queue_size=1)
         
         # Control timer
         self.timer = rospy.Timer(rospy.Duration(1.0/self.control_rate), self.control_loop)
+        
+        # Set dynamic reconfiguration server
+        self.dyn_server = Server(LongitudePIDParamsConfig, self.reconfigure_callback)
         
         rospy.loginfo("Lateral Controller initialized")
     
     def cmd_ref_callback(self, msg):
         self.cmd_ref_traj = msg
+        self.last_cmd_ref_timestamp = rospy.Time.now().to_sec()
     
     def lateral_ref_callback(self, msg):
         self.lateral_ref = msg
@@ -137,7 +159,7 @@ class LateralController:
             vy_path = -vx_global * sin_ref + vy_global * cos_ref
             
             # Update lateral velocity
-            self.y_dot = vy_path
+            self.y_dot = msg.twist.twist.linear.y
     
     def estop_callback(self, msg):
         """Handle external E-stop command"""
@@ -164,11 +186,15 @@ class LateralController:
         return math.atan2(siny_cosp, cosy_cosp)
     
     def control_loop(self, event):
-        # Check E-stop state
-        if self.estop_active:
-            # Do not send control commands, the chassis will automatically stop
-            return
             
+        # Check trajectory update
+        current_time = rospy.Time.now().to_sec()
+        cmd_ref_age = current_time - self.last_cmd_ref_timestamp if self.last_cmd_ref_timestamp > 0 else float('inf')
+        
+        # if cmd_ref_age > self.traj_timeout:
+        #     rospy.logwarn_throttle(1.0, f"Trajectory data timeout - cmd_ref: {cmd_ref_age:.2f}s")
+        #     return  # Do not send control commands
+        
         if None in (self.cmd_ref_traj, self.lateral_ref, self.current_pose):
             # Detailed explanation of which messages are missing
             missing_msgs = []
@@ -213,6 +239,40 @@ class LateralController:
             # Calculate lateral velocity error
             de_y = self.y_dot + self.lateral_ref.v * e_psi
             
+            # Calculate longitudinal position error (s error)
+            s_error = self.cmd_ref_traj.s - self.lateral_ref.s
+            
+            # Use longitudinal PID or open-loop based on switch
+            if self.enable_longitudinal_pid:
+                # PID calculation
+                s_error_deriv = (s_error - self.prev_s_error) * self.control_rate
+                self.s_error_sum += s_error / self.control_rate
+                
+                # Integral limit
+                self.s_error_sum = np.clip(self.s_error_sum, -1.0, 1.0)
+                
+                # Calculate velocity adjustment
+                velocity_adjustment = (self.s_pid_p * s_error + 
+                                     self.s_pid_i * self.s_error_sum + 
+                                     self.s_pid_d * s_error_deriv)
+                
+                # Update previous error
+                self.prev_s_error = s_error
+                
+                # Calculate final velocity command
+                final_velocity = self.cmd_ref_traj.v + velocity_adjustment
+                final_velocity = max(0.0, final_velocity)  # Ensure velocity is not negative
+                
+                # If s error is too large, slow down or stop
+                if abs(s_error) > self.max_s_error:
+                    rospy.logwarn_throttle(1.0, f"S error too large {s_error:.2f}m, stop")
+                    final_velocity = min(final_velocity, 0)
+            else:
+                # Use open-loop control (reference trajectory velocity directly)
+                final_velocity = self.cmd_ref_traj.v
+                # Still record s_error for logging and debugging
+                self.prev_s_error = s_error
+            
             # Safety check
             if abs(e_y) > self.max_lateral_error or abs(e_psi) > math.radians(self.max_heading_error):
                 rospy.logerr("Safety limits exceeded! e_y: %.2f, e_psi: %.2f", e_y, math.degrees(e_psi))
@@ -242,17 +302,22 @@ class LateralController:
             # Limit steering angle
             steer_cmd_rad = np.clip(steer_cmd_rad, -self.max_steering_rad, self.max_steering_rad)
             
+            # Check E-stop state
+            if self.estop_active:
+                # Do not send control commands, the chassis will automatically stop
+                return
+
             # Publish command
             cmd_msg = TwistStamped()
             cmd_msg.header.stamp = rospy.Time.now()
             cmd_msg.header.frame_id = "base_link"
-            cmd_msg.twist.linear.x = self.cmd_ref_traj.v  # Use reference trajectory velocity
+            cmd_msg.twist.linear.x = final_velocity  # Use PID adjusted velocity
             cmd_msg.twist.angular.z = steer_cmd_rad  # Steering angle (radians)
             self.cmd_pub.publish(cmd_msg)
             
             # Publish state information (for debugging)
             state_msg = Float64MultiArray()
-            state_msg.data = [e_y, de_y, e_psi, de_psi, steer_cmd_rad, self.current_velocity, curvature]
+            state_msg.data = [e_y, de_y, e_psi, de_psi, steer_cmd_rad, self.current_velocity, curvature, s_error, final_velocity, velocity_adjustment]
             self.state_pub.publish(state_msg)
             
             # Update previous steering angle
@@ -265,6 +330,20 @@ class LateralController:
                 self.estop_active = True
                 self.safety_violation = True  # Mark as E-stop triggered by safety violation
                 self.estop_pub.publish(Bool(True))
+
+    def reconfigure_callback(self, config, level):
+        """Dynamic reconfiguration parameter callback function"""
+        # Update PID parameters
+        self.s_pid_p = config.s_pid_p
+        self.s_pid_i = config.s_pid_i
+        self.s_pid_d = config.s_pid_d
+        
+        # Reset integral term to avoid integral saturation
+        self.s_error_sum = 0.0
+        
+        rospy.loginfo("Lateral controller parameters updated: PID parameters p=%.2f, i=%.2f, d=%.2f", 
+                     self.s_pid_p, self.s_pid_i, self.s_pid_d)
+        return config
 
 if __name__ == '__main__':
     try:
