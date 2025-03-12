@@ -14,7 +14,7 @@ private:
     ros::Publisher cmd_traj_marker_pub_;
     ros::Publisher lateral_ref_marker_pub_;
     ros::Publisher velocity_marker_pub_;  // New publisher for velocity arrows
-    ros::Timer timer_; 
+    ros::Timer timer_;
     
     traj_analyzer::RefTraj latest_cmd_traj_;
     traj_analyzer::RefTraj latest_lateral_ref_;

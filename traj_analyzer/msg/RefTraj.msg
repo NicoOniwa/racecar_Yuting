@@ -4,3 +4,5 @@ float64 y      # position y
 float64 psi    # heading
 float64 v      # velocity
 float64 curvature  # curvature
+float64 s        # s coordinate
+float64 d        # d coordinate

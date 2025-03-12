@@ -8,7 +8,7 @@ from nav_msgs.msg import Odometry
 from traj_analyzer.msg import RefTraj
 from std_msgs.msg import Float64MultiArray, Float64, Bool
 from dynamic_reconfigure.server import Server
-from thesis_car_drive.cfg import LongitudePIDParamsConfig
+from car_controller_ros.cfg import LongitudePIDParamsConfig
 
 class LateralController:
     def __init__(self):

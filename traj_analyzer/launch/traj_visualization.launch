@@ -1,44 +1,30 @@
 <?xml version="1.0"?>
-<launch>    
+<launch>
+          
     <!-- Arguments that can be overridden from command line -->
-    <arg name="fifo_size" default="400" />
-    <arg name="publish_rate" default="20" /> <!-- Hz -->
     <arg name="frame_id" default="odom" />
-    <arg name="startup_delay" default="2.0" /> <!-- seconds to wait before starting publisher -->
-    <arg name="use_rviz" default="false" /> 
-    <arg name="traj_file_path" default="$(find traj_analyzer)/refine_traj_slow.txt" />
+    <arg name="use_rviz" default="true" /> 
     <arg name="point_size" default="0.1" />
     <arg name="line_width" default="0.05" />
     <arg name="arrow_scale" default="2" />
     <arg name="traj_display_length" default="400" /> <!-- Number of trajectory points to display -->
 
     <!-- Load parameters to parameter server -->
-    <param name="fifo_size" value="$(arg fifo_size)" />
     <param name="frame_id" value="$(arg frame_id)" />
-    <param name="traj_file_path" value="$(arg traj_file_path)" />
-    
-    <!-- Launch trajectory manager node with a startup delay -->
-    <node name="traj_manager" pkg="traj_analyzer" type="traj_manager" output="screen"
-          launch-prefix="bash -c 'sleep $(arg startup_delay); $0 $@'">
-        <param name="fifo_size" value="$(arg fifo_size)" />
-        <param name="frame_id" value="$(arg frame_id)" />
-        <param name="traj_file_path" value="$(arg traj_file_path)" />
-        <param name="publish_rate" value="$(arg publish_rate)" />
-    </node>
     
     <!-- Launch trajectory visualizer node -->
-    <!-- <node name="traj_visualizer" pkg="traj_analyzer" type="traj_visualizer" output="screen">
+    <node name="traj_visualizer" pkg="traj_analyzer" type="traj_visualizer" output="screen">
         <param name="frame_id" value="$(arg frame_id)" />
         <param name="point_size" value="$(arg point_size)" />
         <param name="line_width" value="$(arg line_width)" />
         <param name="arrow_scale" value="$(arg arrow_scale)" />
         <param name="traj_display_length" value="$(arg traj_display_length)" />
-    </node> -->
+    </node>
     
     <!-- Launch RViz with our configuration -->
-    <!-- <group if="$(arg use_rviz)">
+    <group if="$(arg use_rviz)">
         <node name="rviz" pkg="rviz" type="rviz" args="-d $(find traj_analyzer)/rviz/traj_visualization.rviz" />
-    </group> -->
+    </group>
     
     <!-- Remap topics if needed -->
     <!-- Example: <remap from="cmd_ref_trajectory" to="vehicle/trajectory/cmd_ref" /> -->

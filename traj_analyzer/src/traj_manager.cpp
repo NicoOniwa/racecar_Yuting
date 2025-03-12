@@ -88,9 +88,9 @@ public:
             if (line.empty()) continue;
             
             std::istringstream iss(line);
-            double x, y, psi, v, curvature;
+            double x, y, psi, v, curvature, s, d;
             
-            if (iss >> x >> y >> psi >> v >> curvature) {
+            if (iss >> x >> y >> psi >> v >> curvature >> s >> d) {
                 traj_analyzer::RefTraj point;
                 point.header.stamp = ros::Time::now();
                 point.header.frame_id = frame_id_;
@@ -99,6 +99,8 @@ public:
                 point.psi = psi;
                 point.v = v;
                 point.curvature = curvature;
+                point.s = s;
+                point.d = d;
                 
                 all_trajectory_points_.push_back(point);
             }
@@ -122,6 +124,8 @@ public:
             zero_point.psi = 0.0;
             zero_point.v = 0.6;  // Velocity is 0.6
             zero_point.curvature = 0.0;
+            zero_point.s = 0.0;  // 初始化s坐标为0
+            zero_point.d = 0.0;  // 初始化d坐标为0
             
             fifo_buffer_.push_back(zero_point);
         }
@@ -140,12 +144,15 @@ public:
             ROS_WARN("Trajectory points are empty, cannot update FIFO");
             return;
         }
-        int middle_point_idx = fifo_buffer_.size() / 2;
+        
+        // 计算FIFO中间点的索引
+        int middle_idx = fifo_size_ / 2;
+        
         // Check if the trajectory has been updated
         if (current_traj_idx_ >= all_trajectory_points_.size() && 
-            fifo_buffer_.size() > middle_point_idx && 
-            fifo_buffer_[middle_point_idx].x == all_trajectory_points_.back().x && 
-            fifo_buffer_[middle_point_idx].y == all_trajectory_points_.back().y) {
+            fifo_buffer_.size() > middle_idx && 
+            fifo_buffer_[middle_idx].x == all_trajectory_points_.back().x && 
+            fifo_buffer_[middle_idx].y == all_trajectory_points_.back().y) {
             ROS_INFO_ONCE("Reached the end of trajectory and middle point is the last trajectory point, stopping updates");
             return;  // When the middle point is the last trajectory point, stop updating
         }
@@ -170,9 +177,9 @@ public:
             }
         }
         
-        // Publish cmd_ref_trajectory (101st line of FIFO)
-        if (fifo_buffer_.size() > middle_point_idx) {
-            cmd_ref_traj_pub_.publish(fifo_buffer_[middle_point_idx]);
+        // Publish cmd_ref_trajectory (middle line of FIFO)
+        if (fifo_buffer_.size() > middle_idx) {
+            cmd_ref_traj_pub_.publish(fifo_buffer_[middle_idx]);
         }
         
         // If current position is received, find and publish the nearest point
