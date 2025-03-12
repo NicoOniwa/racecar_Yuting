@@ -3,7 +3,7 @@
     <!-- publish static transform -->
           
     <!-- Arguments that can be overridden from command line -->
-    <arg name="fifo_size" default="400" />
+    <arg name="fifo_size" default="200" />
     <arg name="publish_rate" default="20" /> <!-- Hz -->
     <arg name="frame_id" default="world" />
     <arg name="startup_delay" default="10.0" /> <!-- seconds to wait before starting publisher -->

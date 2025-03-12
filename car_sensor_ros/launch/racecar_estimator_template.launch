@@ -1,0 +1,74 @@
+<launch>
+  <!-- 
+    该文件作为赛车机器人状态估计系统的模板文件
+    实现了位姿变换、EKF滤波以及VRPN数据处理功能
+    设计为参数化模板，可被其他launch文件引用并传递参数
+  -->
+
+  <!-- ========== 系统参数定义 ========== -->
+  <!-- 地面真值位姿话题，通常来自仿真环境或运动捕捉系统 -->
+  <arg name="ground_truth_pose_topic" default="/ground_truth/pose" doc="Ground truth pose topic"/>
+  
+  <!-- 刚体位姿话题，来自VRPN运动捕捉系统 -->
+  <arg name="rigid_body_pose_topic" default="/vrpn_client_node/RigidBody/pose" doc="Rigid body pose topic"/>
+  
+  <!-- 标记点位姿话题，通常用于辅助定位或标定 -->
+  <arg name="marker_pose_topic" default="/vrpn_client_node/Marker/pose" doc="Marker pose topic"/>
+  
+  <!-- EKF配置文件路径，定义了卡尔曼滤波器的参数 -->
+  <arg name="ekf_config_file" default="$(find car_sensor_ros)/config/ekf.yaml" doc="Path to EKF configuration file"/>
+  
+  <!-- 经过滤波后的里程计输出话题 -->
+  <arg name="odometry_filtered_topic" default="/odometry/filtered" doc="Filtered odometry topic"/>
+
+  <!-- ========== 位姿转换节点 ========== -->
+  <!-- 
+    将ground_truth位姿数据转换并发布到rigid_body话题
+    使用topic_tools的transform工具进行消息类型转换
+  -->
+  <node name="odom_to_pose_transform" 
+        pkg="topic_tools" 
+        type="transform"
+        args="$(arg ground_truth_pose_topic) $(arg rigid_body_pose_topic) geometry_msgs/PoseStamped 
+             'geometry_msgs.msg.PoseStamped(
+                 header=std_msgs.msg.Header(stamp=m.header.stamp, frame_id=m.header.frame_id),
+                 pose=m.pose.pose
+             )'
+             --import geometry_msgs std_msgs"
+        output="screen"/>
+
+  <!-- 
+    将ground_truth位姿数据转换并发布到marker话题
+    保持时间戳和坐标系信息的一致性
+  -->
+  <node name="odom_to_pose_transform_marker" 
+        pkg="topic_tools" 
+        type="transform"
+        args="$(arg ground_truth_pose_topic) $(arg marker_pose_topic) geometry_msgs/PoseStamped 
+             'geometry_msgs.msg.PoseStamped(
+                 header=std_msgs.msg.Header(stamp=m.header.stamp, frame_id=m.header.frame_id),
+                 pose=m.pose.pose
+             )'
+             --import geometry_msgs std_msgs"
+        output="screen"/>
+
+  <!-- ========== EKF滤波器节点 ========== -->
+  <!-- 
+    启动robot_localization包的EKF节点
+    用于融合多传感器数据并输出滤波后的里程计
+  -->
+  <node pkg="robot_localization" type="ekf_localization_node" name="ekf_filter_node">
+    <rosparam command="load" file="$(arg ekf_config_file)"/>
+    <remap from="odometry/filtered" to="$(arg odometry_filtered_topic)"/>
+  </node>
+  
+  <!-- ========== VRPN处理节点 ========== -->
+  <!-- 
+    启动轮式里程计节点（之前编写的ackermann_odom.py）
+    目前已注释掉，可根据需要启用
+  -->
+  <!-- <node pkg="car_sensor_ros" type="odom_wheel_encoder.py" name="ackermann_odom_node"/> -->
+  
+  <!-- 启动VRPN处理节点，用于处理运动捕捉系统数据 -->
+  <node pkg="car_sensor_ros" type="vrpn_processor.py" name="vrpn_processor_node" output="screen"/>
+</launch> 

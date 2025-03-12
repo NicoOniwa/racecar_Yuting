@@ -1,33 +1,36 @@
 <launch>
-  <!-- 启动EKF节点 -->
-    <node name="odom_to_pose_transform" 
-        pkg="topic_tools" 
-        type="transform"
-        args="/ground_truth/pose /vrpn_client_node/RigidBody/pose geometry_msgs/PoseStamped 
-             'geometry_msgs.msg.PoseStamped(
-                 header=std_msgs.msg.Header(stamp=m.header.stamp, frame_id=m.header.frame_id),
-                 pose=m.pose.pose
-             )'
-             --import geometry_msgs std_msgs"
-        output="screen"/>
+  <!-- 
+    该文件用于配置和启动赛车机器人的状态估计系统
+    通过参数化设计，允许用户灵活配置各种输入数据源和输出目标
+    主要功能包括：姿态转换、EKF滤波和VRPN处理
+  -->
 
-      <node name="odom_to_pose_transform_marker" 
-        pkg="topic_tools" 
-        type="transform"
-        args="/ground_truth/pose /vrpn_client_node/Marker/pose geometry_msgs/PoseStamped 
-             'geometry_msgs.msg.PoseStamped(
-                 header=std_msgs.msg.Header(stamp=m.header.stamp, frame_id=m.header.frame_id),
-                 pose=m.pose.pose
-             )'
-             --import geometry_msgs std_msgs"
-        output="screen"/>
-
-  <node pkg="robot_localization" type="ekf_localization_node" name="ekf_filter_node">
-    <rosparam command="load" file="$(find car_sensor_ros)/config/ekf.yaml"/>
-    <remap from="odometry/filtered" to="/odometry/filtered"/>
-  </node>
+  <!-- ========== 系统参数定义 ========== -->
+  <!-- 地面真值位姿话题，通常来自仿真环境或运动捕捉系统 -->
+  <arg name="ground_truth_pose_topic" default="/ground_truth/pose" doc="Ground truth pose topic"/>
   
-  <!-- 启动轮式里程计节点（之前编写的ackermann_odom.py） -->
-  <!-- <node pkg="car_sensor_ros" type="odom_wheel_encoder.py" name="ackermann_odom_node"/> -->
-  <node pkg="car_sensor_ros" type="vrpn_processor.py" name="vrpn_processor_node" output="screen"/>
-</launch>
+  <!-- 刚体位姿话题，来自VRPN运动捕捉系统 -->
+  <arg name="rigid_body_pose_topic" default="/vrpn_client_node/RigidBody/pose" doc="Rigid body pose topic"/>
+  
+  <!-- 标记点位姿话题，通常用于辅助定位或标定 -->
+  <arg name="marker_pose_topic" default="/vrpn_client_node/Marker/pose" doc="Marker pose topic"/>
+  
+  <!-- EKF配置文件路径，定义了卡尔曼滤波器的参数 -->
+  <arg name="ekf_config_file" default="$(find car_sensor_ros)/config/ekf.yaml" doc="Path to EKF configuration file"/>
+  
+  <!-- 经过滤波后的里程计输出话题 -->
+  <arg name="odometry_filtered_topic" default="/odometry/filtered" doc="Filtered odometry topic"/>
+
+  <!-- ========== 启动模板文件 ========== -->
+  <!-- 
+    包含模板文件并传递参数
+    模板文件中包含了EKF节点、位姿转换节点和VRPN处理节点
+   -->
+  <include file="$(find car_sensor_ros)/launch/racecar_estimator_template.launch">
+    <arg name="ground_truth_pose_topic" value="$(arg ground_truth_pose_topic)"/>
+    <arg name="rigid_body_pose_topic" value="$(arg rigid_body_pose_topic)"/>
+    <arg name="marker_pose_topic" value="$(arg marker_pose_topic)"/>
+    <arg name="ekf_config_file" value="$(arg ekf_config_file)"/>
+    <arg name="odometry_filtered_topic" value="$(arg odometry_filtered_topic)"/>
+  </include>
+</launch> 

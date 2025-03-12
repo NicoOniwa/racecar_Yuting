@@ -137,7 +137,7 @@ class LateralController:
             vy_path = -vx_global * sin_ref + vy_global * cos_ref
             
             # Update lateral velocity
-            self.y_dot = msg.twist.twist.linear.y
+            self.y_dot = vy_path
     
     def estop_callback(self, msg):
         """Handle external E-stop command"""
