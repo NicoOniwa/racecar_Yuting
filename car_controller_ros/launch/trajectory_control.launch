@@ -36,9 +36,9 @@
         <param name="max_lateral_error" value="100"/>
         <param name="max_heading_error" value="360.0"/>
         <param name="enable_longitudinal_pid" value="true"/>
-        <param name="s_pid_p" value="0.1"/>
-        <param name="s_pid_i" value="0.0"/>
-        <param name="s_pid_d" value="0.0"/>
+        <param name="s_pid_p" value="10"/>
+        <param name="s_pid_i" value="5"/>
+        <param name="s_pid_d" value="1"/>
         <param name="max_s_error" value="100.0"/>
     </node>
 </launch>
