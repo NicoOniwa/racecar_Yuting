@@ -6,9 +6,11 @@ import math
 from geometry_msgs.msg import TwistStamped
 from nav_msgs.msg import Odometry
 from traj_analyzer.msg import RefTraj
-from std_msgs.msg import Float64MultiArray, Float64, Bool
+from std_msgs.msg import Float64MultiArray, Float64, Bool, Int32
 from dynamic_reconfigure.server import Server
 from car_controller_ros.cfg import LongitudePIDParamsConfig
+from collections import deque
+import os
 
 class LateralController:
     def __init__(self):
@@ -20,9 +22,17 @@ class LateralController:
         self.max_steering_angle = rospy.get_param('~max_steering_angle', 25.0)  # Maximum steering angle (degrees)
         self.max_steering_rad = math.radians(self.max_steering_angle)
         
+        # Trajectory management parameters
+        self.fifo_size = rospy.get_param('~fifo_size', 400)
+        self.traj_file_path = rospy.get_param('~traj_file_path', 'traj_analyzer/refine_traj_fast.txt')
+        self.frame_id = rospy.get_param('~frame_id', 'odom_capture_frame')
+        
+        # Trajectory management variables
+        self.all_trajectory_points = []  # Store all trajectory points
+        self.fifo_buffer = deque(maxlen=self.fifo_size)  # FIFO buffer
+        self.current_traj_idx = 0
+        
         # State variables
-        self.cmd_ref_traj = None
-        self.lateral_ref = None
         self.current_pose = None
         self.current_velocity = 0.0
         self.current_yaw_rate = 0.0
@@ -31,61 +41,101 @@ class LateralController:
         
         # E-stop state
         self.estop_active = False
-        self.safety_violation = False  # Added: flag to indicate if E-stop was triggered by safety violation
+        self.safety_violation = False
         
         # Safety limits
-        self.max_lateral_error = rospy.get_param('~max_lateral_error', 0.5)  # Maximum lateral error (meters)
-        self.max_heading_error = rospy.get_param('~max_heading_error', 30.0)  # Maximum heading error (degrees)
+        self.max_lateral_error = rospy.get_param('~max_lateral_error', 0.5)
+        self.max_heading_error = rospy.get_param('~max_heading_error', 30.0)
         
         # Control gain matrix - obtained from MATLAB code
         self.K_gains = np.array([
-            [-6.22364053081608, -0.119933555790367, -1.79306122252577, -0.0173770991784354],
-            [-4.07314490642052, -0.0925069683909457, -1.45573836806723, -0.0183139479688961],
-            [-2.94915232275821, -0.0767863912082127, -1.24793807284656, -0.0191143134089535],
-            [-2.69930087707559, -0.0805767820749538, -1.21610148639450, -0.0211886450414383],
-            [-1.81594001715976, -0.0588415569660538, -1.00027933749321, -0.0204913003317687],
-            [-1.63234788170244, -0.0586635807318933, -0.965701976816002, -0.0218661763238577],
-            [-1.24138350104978, -0.0476596756071716, -0.848596552384048, -0.0215325705556222],
-            [-1.03469564034862, -0.0425673768734628, -0.784766670546516, -0.0218043412817321],
-            [-0.941437906536761, -0.0418616869989587, -0.763221275423766, -0.0227590130943350],
-            [-0.776294088429916, -0.0363029081988157, -0.700993493643848, -0.0226065394441894],
-            [-0.622637501987140, -0.0301396865404903, -0.632858324721398, -0.0220320844083687],
-            [-0.563151846560282, -0.0289017232266490, -0.613308787863649, -0.0225675660881218],
-            [-0.512450256531042, -0.0278255569306132, -0.596812826812500, -0.0230955876141210],
-            [-0.420472038829676, -0.0232933657057594, -0.545349653735793, -0.0224399005284455],
-            [-0.387094021233674, -0.0226049330258396, -0.534710861896524, -0.0229503079326371],
-            [-0.383414995799648, -0.0241762277727010, -0.549258566963019, -0.0242523562377475],
-            [-0.308385665842894, -0.0194148064099780, -0.495515039330267, -0.0231549079859267],
-            [-0.296791723284053, -0.0199389598342530, -0.500793743720041, -0.0240588787312930],
-            [-0.256648425107808, -0.0175515076858973, -0.469613251983932, -0.0235181613625429],
-            [-0.297908771317402, -0.0231730469279533, -0.512873552392554, -0.0254879860968071]
+            [-5.05343693359301,-0.0959301262792274,-1.60383689965672,-0.0163177101700867],
+            [-4.33835189598493,-0.0899444054449210,-1.49113131030043,-0.0170777303353192],
+            [-3.78573260687361,-0.0850323367442463,-1.39878024709001,-0.0177833448928725],
+            [-3.34814069813036,-0.0809338811665958,-1.32188697113860,-0.0184474848492566],
+            [-2.99488568230008,-0.0774784136985286,-1.25703759949569,-0.0190790203810848],
+            [-2.81166282794989,-0.0778036155443890,-1.22751394824941,-0.0199713204083865],
+            [-2.55808138804857,-0.0751072216307103,-1.17854127823498,-0.0205631778235457],
+            [-2.25828339580164,-0.0697956807025532,-1.11294699405489,-0.0208358676835320],
+            [-2.00773448764947,-0.0650936942493804,-1.05498129577411,-0.0210781499716144],
+            [-1.86410212619741,-0.0635259105853891,-1.02437640543957,-0.0216134075189041],
+            [-1.67697392320236,-0.0596233948405479,-0.977283705442289,-0.0218161383022824],
+            [-1.51625064747038,-0.0561068345469056,-0.934882307838881,-0.0219997631796445],
+            [-1.42793354354891,-0.0551898188287044,-0.915101985032981,-0.0225027008039230],
+            [-1.30224273394362,-0.0521833571627288,-0.879561587274598,-0.0226614035311454],
+            [-1.19210686834890,-0.0494398150000221,-0.847128601606196,-0.0228072641002867],
+            [-1.09503568735318,-0.0469258878112629,-0.817417574712336,-0.0229419496112648],
+            [-1.04517383275862,-0.0465243058959571,-0.806408343189399,-0.0234198282002949],
+            [-0.965799750384190,-0.0443122997607369,-0.780757010539154,-0.0235401274552425],
+            [-0.894828420557652,-0.0422671485759989,-0.757036590660418,-0.0236522268255630],
+            [-0.831108148847569,-0.0403704910984141,-0.735044623114165,-0.0237573689759519],
+            [-0.773675493582585,-0.0386080262332857,-0.714603506663381,-0.0238559167588535],
+            [-0.746789464665513,-0.0385540943524211,-0.709890500623783,-0.0243179102589142],
+            [-0.697913597889053,-0.0369616823211541,-0.691782750053527,-0.0244085378213624],
+            [-0.653427520496908,-0.0354724490745596,-0.674850549234679,-0.0244946002855827],
+            [-0.592352130419241,-0.0326484198130086,-0.645557196270125,-0.0241986052637124],
+            [-0.614765935102071,-0.0356045750606346,-0.670550742436906,-0.0254072840974208],
+            [-0.559569979827022,-0.0328858887378749,-0.643005997446479,-0.0251077219393352],
+            [-0.544382266648718,-0.0330213362734576,-0.642345539040967,-0.0255611566735593],
+            [-0.513217159040605,-0.0318349914339547,-0.629432435514301,-0.0256330999004156],
+            [-0.438748578764292,-0.0269894475585669,-0.580327359868689,-0.0245410500800681],
+            [-0.472407519931497,-0.0308983556280456,-0.617899850430289,-0.0261534562684632],
+            [-0.446690082650718,-0.0298493216019248,-0.606762370189187,-0.0262187455672089],
+            [-0.422726498433036,-0.0288494719211414,-0.596192823437878,-0.0262819295627051],
+            [-0.423079201760851,-0.0299385573098872,-0.599623841290695,-0.0266848609683923],
+            [-0.375516847819688,-0.0265559077647763,-0.565831928219194,-0.0259405809666788],
+            [-0.354441618581577,-0.0254923943112203,-0.551481486161367,-0.0257609140149112],
+            [-0.334260389130784,-0.0244218250317978,-0.537248764630869,-0.0255653871518884],
+            [-0.335864666690809,-0.0254221880093017,-0.541204032577295,-0.0259463304929839],
+            [-0.316441684383003,-0.0242942461621734,-0.526963145727946,-0.0257240954166837],
+            [-0.297909609567305,-0.0231731460849310,-0.512874117927077,-0.0254879865154979]
         ])
         
         self.L_gains = np.array([
-            -0.129971119462624,
-            -0.0869803873978075,
-            -0.0634292121113410,
-            -0.0530611004477516,
-            -0.0368515532864838,
-            -0.0271337162471516,
-            -0.0203009086186435,
-            -0.0192804387854424,
-            -0.0172242281431122,
-            -0.0145695174609380,
-            -0.0105925170916231,
-            -0.00991869968314029,
-            -0.00760352531387266,
-            -0.00484700287791326,
-            -0.00232853575669480,
-            -0.00348528454493122,
-            -0.00155636903655431,
-            -0.000595216137960191,
-            0.00120042558630700,
-            -0.00565267322383229
+            -0.116278136329070,
+            -0.0980505191793439,
+            -0.0841406581806088,
+            -0.0732719131904196,
+            -0.0645908719677455,
+            -0.0430002618980076,
+            -0.0373677730397041,
+            -0.0319707327909971,
+            -0.0315911853960587,
+            -0.0277072202702114,
+            -0.0289435436762753,
+            -0.0255718934244124,
+            -0.0242694952863533,
+            -0.0232387432962793,
+            -0.0215737172045934,
+            -0.0200610123589473,
+            -0.0189835946164580,
+            -0.0178130604562318,
+            -0.0167568970816786,
+            -0.0159926036030597,
+            -0.0150140156429866,
+            -0.0145436660344001,
+            -0.0137736517796197,
+            -0.0130890636168592,
+            -0.0122186124333131,
+            -0.0124402992253541,
+            -0.0115487559166845,
+            -0.0113670349815845,
+            -0.0108511815603949,
+            -0.00924408865595257,
+            -0.0102162236425890,
+            -0.00979015633853910,
+            -0.00939238589245627,
+            -0.00928750407540350,
+            -0.00846794522942772,
+            -0.00784672464547232,
+            -0.00768756999018319,
+            -0.00774092809890668,
+            -0.00739843324341302,
+            -0.00703374247295726
         ])
         
         # Speed grid
-        self.v_grid = np.linspace(1, 5, 20)
+        self.v_grid = np.linspace(1, 5, 40)
         
         # Longitudinal PID control parameters
         self.s_pid_p = rospy.get_param('~s_pid_p', 0.5)
@@ -93,28 +143,26 @@ class LateralController:
         self.s_pid_d = rospy.get_param('~s_pid_d', 0.0)
         self.s_error_sum = 0.0
         self.prev_s_error = 0.0
-        self.max_s_error = rospy.get_param('~max_s_error', 1.0)  # Maximum s error
+        self.max_s_error = rospy.get_param('~max_s_error', 1.0)
         
         # Switch to enable/disable longitudinal PID
         self.enable_longitudinal_pid = rospy.get_param('~enable_longitudinal_pid', True)
         
-        # Trajectory update checking
-        self.last_cmd_ref_timestamp = 0
-        self.last_lateral_ref_timestamp = 0
-        self.traj_timeout = rospy.get_param('~traj_timeout', 0.5)  # Trajectory timeout (seconds)
-        
         # Subscribe topics
-        rospy.Subscriber("cmd_ref_trajectory", RefTraj, self.cmd_ref_callback)
-        rospy.Subscriber("lateral_ref", RefTraj, self.lateral_ref_callback)
         rospy.Subscriber("odometry/filtered", Odometry, self.odom_callback)
-        
-        # Add E-stop subscriber
         rospy.Subscriber("/estop", Bool, self.estop_callback)
         
         # Publish topics
         self.cmd_pub = rospy.Publisher("vel_and_steering", TwistStamped, queue_size=1)
-        self.state_pub = rospy.Publisher("lateral_controller_state", Float64MultiArray, queue_size=1)
+        self.state_pub = rospy.Publisher("lateral_controller_state", Float64MultiArray, queue_size=10)
         self.estop_pub = rospy.Publisher("/estop", Bool, queue_size=1)
+        self.cmd_ref_traj_pub = rospy.Publisher("cmd_ref_trajectory", RefTraj, queue_size=10)
+        self.lateral_ref_pub = rospy.Publisher("lateral_ref", RefTraj, queue_size=10)
+        self.nearest_idx_pub = rospy.Publisher("nearest_traj_idx", Int32, queue_size=10)
+        
+        # Load trajectory and initialize FIFO
+        self.load_trajectory_file()
+        self.initialize_fifo()
         
         # Control timer
         self.timer = rospy.Timer(rospy.Duration(1.0/self.control_rate), self.control_loop)
@@ -122,125 +170,194 @@ class LateralController:
         # Set dynamic reconfiguration server
         self.dyn_server = Server(LongitudePIDParamsConfig, self.reconfigure_callback)
         
-        rospy.loginfo("Lateral Controller initialized")
+        rospy.loginfo("Lateral Controller initialized with trajectory management")
     
-    def cmd_ref_callback(self, msg):
-        self.cmd_ref_traj = msg
-        self.last_cmd_ref_timestamp = rospy.Time.now().to_sec()
+    def load_trajectory_file(self):
+        """Load trajectory points from file"""
+        try:
+            if not os.path.exists(self.traj_file_path):
+                rospy.logerr(f"Cannot open trajectory file: {self.traj_file_path}")
+                return
+            
+            with open(self.traj_file_path, 'r') as file:
+                for line in file:
+                    if not line.strip():
+                        continue
+                    
+                    values = line.strip().split()
+                    if len(values) >= 7:
+                        x, y, psi, v, curvature, s, d = map(float, values[:7])
+                        
+                        point = RefTraj()
+                        point.header.stamp = rospy.Time.now()
+                        point.header.frame_id = self.frame_id
+                        point.x = x
+                        point.y = y
+                        point.psi = psi
+                        point.v = v
+                        point.curvature = curvature
+                        point.s = s
+                        point.d = d
+                        
+                        self.all_trajectory_points.append(point)
+            
+            rospy.loginfo(f"Successfully loaded {len(self.all_trajectory_points)} trajectory points")
+        except Exception as e:
+            rospy.logerr(f"Error loading trajectory file: {str(e)}")
     
-    def lateral_ref_callback(self, msg):
-        self.lateral_ref = msg
+    def initialize_fifo(self):
+        """Initialize FIFO buffer with initial trajectory points"""
+        # Clear FIFO
+        self.fifo_buffer.clear()
+        
+        # Fill the first half+10 with zeros (velocity 0.6)
+        for _ in range(self.fifo_size // 2 + 10):
+            zero_point = RefTraj()
+            zero_point.header.stamp = rospy.Time.now()
+            zero_point.header.frame_id = self.frame_id
+            zero_point.x = 0.0
+            zero_point.y = 0.0
+            zero_point.psi = 0.0
+            zero_point.v = 0.6
+            zero_point.curvature = 0.0
+            zero_point.s = 0.0
+            zero_point.d = 0.0
+            
+            self.fifo_buffer.append(zero_point)
+        
+        # Add initial trajectory points
+        points_to_add = min(self.fifo_size // 2 - 10, len(self.all_trajectory_points))
+        for i in range(points_to_add):
+            self.fifo_buffer.append(self.all_trajectory_points[i])
+        
+        self.current_traj_idx = points_to_add
+    
+    def update_trajectory_buffer(self):
+        """Update FIFO buffer with new trajectory points"""
+        if not self.all_trajectory_points:
+            return
+        
+        # Calculate middle index
+        middle_idx = self.fifo_size // 2
+        
+        # Check if we've reached the end of trajectory
+        if (self.current_traj_idx >= len(self.all_trajectory_points) and 
+            len(self.fifo_buffer) > middle_idx and 
+            self.fifo_buffer[middle_idx].x == self.all_trajectory_points[-1].x and 
+            self.fifo_buffer[middle_idx].y == self.all_trajectory_points[-1].y):
+            return
+        
+        # Remove points from the front
+        for _ in range(min(10, len(self.fifo_buffer))):
+            if self.fifo_buffer:
+                self.fifo_buffer.popleft()
+        
+        # Add new trajectory points
+        for _ in range(10):
+            if self.current_traj_idx < len(self.all_trajectory_points):
+                self.fifo_buffer.append(self.all_trajectory_points[self.current_traj_idx])
+                self.current_traj_idx += 1
+            else:
+                self.fifo_buffer.append(self.all_trajectory_points[-1])
+    
+    def find_nearest_point(self):
+        """Find the nearest trajectory point to current position"""
+        if not self.fifo_buffer or not self.current_pose:
+            return None, -1
+        
+        min_dist = float('inf')
+        nearest_idx = 0
+        current_x = self.current_pose.position.x
+        current_y = self.current_pose.position.y
+        
+        for i, point in enumerate(self.fifo_buffer):
+            dx = point.x - current_x
+            dy = point.y - current_y
+            dist = dx * dx + dy * dy
+            
+            if dist < min_dist:
+                min_dist = dist
+                nearest_idx = i
+        
+        return self.fifo_buffer[nearest_idx], nearest_idx
     
     def odom_callback(self, msg):
+        """Handle odometry message"""
         self.current_pose = msg.pose.pose
-        
-        # Extract current velocity and yaw rate
         self.current_velocity = msg.twist.twist.linear.x
         self.current_yaw_rate = msg.twist.twist.angular.z
         
         curr_yaw = self.get_quaternion_yaw(self.current_pose.orientation)
         
         # Global velocities
-        vx_global = msg.twist.twist.linear.x*math.cos(curr_yaw)
-        vy_global = msg.twist.twist.linear.x*math.sin(curr_yaw)
+        vx_global = msg.twist.twist.linear.x * math.cos(curr_yaw)
+        vy_global = msg.twist.twist.linear.x * math.sin(curr_yaw)
         
-        # If we have reference trajectory, transform to path-aligned coordinates
-        if self.lateral_ref is not None:
-            # Get reference heading (path direction)
-            ref_heading = self.lateral_ref.psi   # ref is in radians
-            
-            # Transform global velocities to path-aligned coordinates
-            # Rotation matrix from global to path-aligned frame
+        # Get nearest point and transform velocities
+        nearest_point, _ = self.find_nearest_point()
+        if nearest_point:
+            ref_heading = nearest_point.psi
             cos_ref = math.cos(ref_heading)
             sin_ref = math.sin(ref_heading)
             
-            # Path-aligned velocities (x along path, y perpendicular to path)
+            # Path-aligned velocities
             vx_path = vx_global * cos_ref + vy_global * sin_ref
             vy_path = -vx_global * sin_ref + vy_global * cos_ref
             
-            # Update lateral velocity
             self.y_dot = msg.twist.twist.linear.y
     
-    def estop_callback(self, msg):
-        """Handle external E-stop command"""
-        # If E-stop was triggered by safety violation, ignore deactivation requests
-        if not msg.data and self.safety_violation:
-            rospy.logwarn("Cannot deactivate E-STOP: System is in safety violation state, please restore safe state first")
-            # Re-publish E-stop signal to ensure system remains in E-stop state
-            self.estop_pub.publish(Bool(True))
-            return
-            
-        # Only output logs when state changes
-        if msg.data and not self.estop_active:
-            self.estop_active = True
-            rospy.logwarn("E-STOP ACTIVATED!")
-        elif not msg.data and self.estop_active:
-            self.estop_active = False
-            self.safety_violation = False  # Clear safety violation flag when manually deactivating E-stop
-            rospy.loginfo("E-STOP DEACTIVATED")
-    
-    def get_quaternion_yaw(self, q):
-        """Extract yaw angle from quaternion"""
-        siny_cosp = 2.0 * (q.w * q.z + q.x * q.y)
-        cosy_cosp = 1.0 - 2.0 * (q.y * q.y + q.z * q.z)
-        return math.atan2(siny_cosp, cosy_cosp)
-    
     def control_loop(self, event):
-            
-        # Check trajectory update
-        current_time = rospy.Time.now().to_sec()
-        cmd_ref_age = current_time - self.last_cmd_ref_timestamp if self.last_cmd_ref_timestamp > 0 else float('inf')
-        
-        # if cmd_ref_age > self.traj_timeout:
-        #     rospy.logwarn_throttle(1.0, f"Trajectory data timeout - cmd_ref: {cmd_ref_age:.2f}s")
-        #     return  # Do not send control commands
-        
-        if None in (self.cmd_ref_traj, self.lateral_ref, self.current_pose):
-            # Detailed explanation of which messages are missing
-            missing_msgs = []
-            if self.cmd_ref_traj is None:
-                missing_msgs.append("cmd_ref_trajectory")
-            if self.lateral_ref is None:
-                missing_msgs.append("lateral_ref")
-            if self.current_pose is None:
-                missing_msgs.append("odometry")
-            
-            rospy.logwarn_throttle(1.0, f"Waiting for messages: {', '.join(missing_msgs)}. The controller requires cmd_ref_trajectory, lateral_ref, and odometry messages to work properly.")
+        """Main control loop"""
+        if not self.fifo_buffer or not self.current_pose:
+            rospy.logwarn_throttle(1.0, "Waiting for trajectory data or odometry")
             return
         
         try:
-            # Calculate lateral error e_y
-            dx = self.current_pose.position.x - self.lateral_ref.x
-            dy = self.current_pose.position.y - self.lateral_ref.y
+            # Update trajectory buffer
+            self.update_trajectory_buffer()
+            
+            # Get middle point as command reference
+            middle_idx = self.fifo_size // 2
+            if len(self.fifo_buffer) > middle_idx:
+                cmd_ref = self.fifo_buffer[middle_idx]
+                self.cmd_ref_traj_pub.publish(cmd_ref)
+            
+            # Find nearest point
+            nearest_point, nearest_idx = self.find_nearest_point()
+            if nearest_point:
+                self.lateral_ref_pub.publish(nearest_point)
+                self.nearest_idx_pub.publish(Int32(nearest_idx))
+            
+            # Calculate control errors
+            dx = self.current_pose.position.x - nearest_point.x
+            dy = self.current_pose.position.y - nearest_point.y
             e_y = math.sqrt(dx*dx + dy*dy)
             
-            # Determine error sign (left is positive, right is negative)
-            # Calculate cross product of vector from reference point to current position with reference trajectory direction
-            ref_heading = self.lateral_ref.psi   # ref is in radians
+            # Determine error sign
+            ref_heading = nearest_point.psi
             ref_dir_x = math.cos(ref_heading)
             ref_dir_y = math.sin(ref_heading)
-            cross_product = - dx * ref_dir_y + dy * ref_dir_x
+            cross_product = -dx * ref_dir_y + dy * ref_dir_x
             e_y = e_y * (1 if cross_product >= 0 else -1)
             
-            # Calculate heading error e_psi
+            # Calculate heading error
             curr_yaw = self.get_quaternion_yaw(self.current_pose.orientation)
-            ref_yaw = self.lateral_ref.psi   # ref is in radians
-            e_psi = math.atan2(math.sin(curr_yaw - ref_yaw), math.cos(curr_yaw - ref_yaw))
+            e_psi = math.atan2(math.sin(curr_yaw - ref_heading), math.cos(curr_yaw - ref_heading))
             
             # Calculate curvature
-            curvature = self.lateral_ref.curvature
+            curvature = nearest_point.curvature
             
             # Calculate desired yaw rate
-            dpsi_des = self.lateral_ref.v * curvature
+            dpsi_des = nearest_point.v * curvature
             
             # Calculate yaw rate error
             de_psi = self.current_yaw_rate - dpsi_des
             
             # Calculate lateral velocity error
-            de_y = self.y_dot + self.lateral_ref.v * e_psi
+            de_y = self.y_dot + nearest_point.v * e_psi
             
             # Calculate longitudinal position error (s error)
-            s_error = self.cmd_ref_traj.s - self.lateral_ref.s
+            s_error = cmd_ref.s - nearest_point.s
             
             # Use longitudinal PID or open-loop based on switch
             if self.enable_longitudinal_pid:
@@ -260,7 +377,7 @@ class LateralController:
                 self.prev_s_error = s_error
                 
                 # Calculate final velocity command
-                final_velocity = self.cmd_ref_traj.v + velocity_adjustment
+                final_velocity = cmd_ref.v + velocity_adjustment
                 final_velocity = max(0.0, final_velocity)  # Ensure velocity is not negative
                 
                 # If s error is too large, slow down or stop
@@ -269,7 +386,7 @@ class LateralController:
                     final_velocity = min(final_velocity, 0)
             else:
                 # Use open-loop control (reference trajectory velocity directly)
-                final_velocity = self.cmd_ref_traj.v
+                final_velocity = cmd_ref.v
                 # Still record s_error for logging and debugging
                 self.prev_s_error = s_error
             
@@ -324,13 +441,36 @@ class LateralController:
             self.prev_steering = steer_cmd_rad
             
         except Exception as e:
-            rospy.logerr("Error in control loop: %s", str(e))
-            # Only publish E-stop command if not already in E-stop state
+            rospy.logerr(f"Error in control loop: {str(e)}")
             if not self.estop_active:
                 self.estop_active = True
-                self.safety_violation = True  # Mark as E-stop triggered by safety violation
+                self.safety_violation = True
                 self.estop_pub.publish(Bool(True))
 
+    def estop_callback(self, msg):
+        """Handle external E-stop command"""
+        # If E-stop was triggered by safety violation, ignore deactivation requests
+        if not msg.data and self.safety_violation:
+            rospy.logwarn("Cannot deactivate E-STOP: System is in safety violation state, please restore safe state first")
+            # Re-publish E-stop signal to ensure system remains in E-stop state
+            self.estop_pub.publish(Bool(True))
+            return
+            
+        # Only output logs when state changes
+        if msg.data and not self.estop_active:
+            self.estop_active = True
+            rospy.logwarn("E-STOP ACTIVATED!")
+        elif not msg.data and self.estop_active:
+            self.estop_active = False
+            self.safety_violation = False  # Clear safety violation flag when manually deactivating E-stop
+            rospy.loginfo("E-STOP DEACTIVATED")
+    
+    def get_quaternion_yaw(self, q):
+        """Extract yaw angle from quaternion"""
+        siny_cosp = 2.0 * (q.w * q.z + q.x * q.y)
+        cosy_cosp = 1.0 - 2.0 * (q.y * q.y + q.z * q.z)
+        return math.atan2(siny_cosp, cosy_cosp)
+    
     def reconfigure_callback(self, config, level):
         """Dynamic reconfiguration parameter callback function"""
         # Update PID parameters

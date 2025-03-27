@@ -6,7 +6,7 @@
     <arg name="frame_id" default="odom" />
     <arg name="startup_delay" default="2.0" /> <!-- seconds to wait before starting publisher -->
     <arg name="use_rviz" default="false" /> 
-    <arg name="traj_file_path" default="$(find traj_analyzer)/refine_traj_slow.txt" />
+    <arg name="traj_file_path" default="$(find traj_analyzer)/1_refine_traj_fast.txt" />
     <arg name="point_size" default="0.1" />
     <arg name="line_width" default="0.05" />
     <arg name="arrow_scale" default="2" />

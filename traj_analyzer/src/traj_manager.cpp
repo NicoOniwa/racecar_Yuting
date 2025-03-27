@@ -3,6 +3,7 @@
 #include <geometry_msgs/PoseStamped.h>
 #include <nav_msgs/Odometry.h>
 #include <std_msgs/Int32.h>
+#include <std_msgs/Float64.h>
 #include <vector>
 #include <deque>
 #include <cmath>
@@ -19,6 +20,7 @@ private:
     ros::Publisher cmd_ref_traj_pub_;  // Publish command reference trajectory
     ros::Publisher lateral_ref_pub_;   // Publish lateral reference point
     ros::Publisher nearest_idx_pub_;   // Publish the index of the nearest point
+    ros::Publisher nearest_dist_pub_;  // 发布最近点的实际距离
     
     std::vector<traj_analyzer::RefTraj> all_trajectory_points_; // Store the entire trajectory file
     std::deque<traj_analyzer::RefTraj> fifo_buffer_;  // 20-line FIFO buffer
@@ -48,6 +50,7 @@ public:
         cmd_ref_traj_pub_ = nh_.advertise<traj_analyzer::RefTraj>("cmd_ref_trajectory", 10);
         lateral_ref_pub_ = nh_.advertise<traj_analyzer::RefTraj>("lateral_ref", 10);
         nearest_idx_pub_ = nh_.advertise<std_msgs::Int32>("nearest_traj_idx", 10);
+        nearest_dist_pub_ = nh_.advertise<std_msgs::Float64>("nearest_point_distance", 10);
         
         // Subscribe to odometry/filtered
         current_pose_sub_ = nh_.subscribe("odometry/filtered", 10, &TrajectoryManager::odomCallback, this);
@@ -184,7 +187,8 @@ public:
         
         // If current position is received, find and publish the nearest point
         if (pose_received_) {
-            int nearest_idx = findNearestPointInFIFO();
+            double min_distance;  // 用于存储最小距离
+            int nearest_idx = findNearestPointInFIFO(&min_distance);  // 修改调用，传入距离变量的指针
             if (nearest_idx >= 0 && nearest_idx < fifo_buffer_.size()) {
                 lateral_ref_pub_.publish(fifo_buffer_[nearest_idx]);
                 
@@ -192,11 +196,16 @@ public:
                 std_msgs::Int32 idx_msg;
                 idx_msg.data = nearest_idx;
                 nearest_idx_pub_.publish(idx_msg);
+                
+                // 发布最近点的实际距离
+                std_msgs::Float64 dist_msg;
+                dist_msg.data = min_distance;
+                nearest_dist_pub_.publish(dist_msg);
             }
         }
     }
     
-    int findNearestPointInFIFO() {
+    int findNearestPointInFIFO(double* min_distance = nullptr) {
         if (fifo_buffer_.empty()) {
             return -1;
         }
@@ -216,6 +225,11 @@ public:
                 min_dist = dist;
                 nearest_idx = i;
             }
+        }
+        
+        // 计算实际距离（取平方根）并通过指针返回
+        if (min_distance != nullptr) {
+            *min_distance = std::sqrt(min_dist);
         }
         
         return nearest_idx;

@@ -109,10 +109,10 @@ class JetRacer_Chassis_Node:
         self.velocity_feedback_pub = rospy.Publisher("/velocity_feedback", Float64, queue_size=1)
         
         # Add PID output publisher (for debugging)
-        self.pid_output_pub = rospy.Publisher("/pid_output", Float64, queue_size=1)
+        # self.pid_output_pub = rospy.Publisher("/pid_output", Float64, queue_size=1)
         
-        # Add feedforward output publisher (for debugging)
-        self.feedforward_pub = rospy.Publisher("/feedforward_output", Float64, queue_size=1)
+        # # Add feedforward output publisher (for debugging)
+        # self.feedforward_pub = rospy.Publisher("/feedforward_output", Float64, queue_size=1)
         
         rospy.loginfo(f'PID parameters: Kp={self.kp}, Ki={self.ki}, Kd={self.kd}')
 
@@ -194,8 +194,8 @@ class JetRacer_Chassis_Node:
         final_output = max(-1.0, min(1.0, final_output))
         
         # Publish debug information
-        self.pid_output_pub.publish(pid_correction)
-        self.feedforward_pub.publish(feedforward)  # Need to add a new publisher
+        # self.pid_output_pub.publish(pid_correction)
+        # self.feedforward_pub.publish(feedforward)  # Need to add a new publisher
         
         return final_output
 

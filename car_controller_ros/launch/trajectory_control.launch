@@ -6,9 +6,9 @@
     <arg name="fifo_size" default="400" />
     <arg name="publish_rate" default="20" /> <!-- Hz -->
     <arg name="frame_id" default="world" />
-    <arg name="startup_delay" default="60.0" /> <!-- seconds to wait before starting publisher -->
+    <arg name="startup_delay" default="0.0" /> <!-- removed long startup delay since we no longer need to wait for traj_manager -->
     <arg name="use_rviz" default="false" /> 
-    <arg name="traj_file_path" default="$(find traj_analyzer)/refine_traj_slow.txt" />
+    <arg name="traj_file_path" default="$(find car_controller_ros)/refine_traj_fast.txt" />
     <arg name="point_size" default="0.1" />
     <arg name="line_width" default="0.05" />
     <arg name="arrow_scale" default="2" />
@@ -19,26 +19,25 @@
     <param name="frame_id" value="$(arg frame_id)" />
     <param name="traj_file_path" value="$(arg traj_file_path)" />
     
-    <!-- Launch trajectory manager node with a startup delay -->
-    <node name="traj_manager" pkg="traj_analyzer" type="traj_manager" output="screen"
+    <!-- Start lateral controller with integrated trajectory management -->
+    <node pkg="car_controller_ros" type="lateral_controller.py" name="lateral_controller" output="screen"
           launch-prefix="bash -c 'sleep $(arg startup_delay); $0 $@'">
+        <!-- Vehicle control parameters -->
+        <param name="wheelbase" value="0.174"/>
+        <param name="control_rate" value="20.0"/>
+        <param name="max_steering_angle" value="20.0"/>
+        <param name="max_lateral_error" value="100"/>
+        <param name="max_heading_error" value="360.0"/>
+        <param name="enable_longitudinal_pid" value="true"/>
+        <param name="s_pid_p" value="2"/>
+        <param name="s_pid_i" value="1"/>
+        <param name="s_pid_d" value="0"/>
+        <param name="max_s_error" value="100.0"/>
+        
+        <!-- Trajectory management parameters (formerly in traj_manager) -->
         <param name="fifo_size" value="$(arg fifo_size)" />
         <param name="frame_id" value="$(arg frame_id)" />
         <param name="traj_file_path" value="$(arg traj_file_path)" />
         <param name="publish_rate" value="$(arg publish_rate)" />
-    </node>
-    
-    <!-- Start lateral controller -->
-    <node pkg="car_controller_ros" type="lateral_controller.py" name="lateral_controller" output="screen">
-        <param name="wheelbase" value="0.174"/>
-        <param name="control_rate" value="20.0"/>
-        <param name="max_steering_angle" value="25.0"/>
-        <param name="max_lateral_error" value="100"/>
-        <param name="max_heading_error" value="360.0"/>
-        <param name="enable_longitudinal_pid" value="true"/>
-        <param name="s_pid_p" value="10"/>
-        <param name="s_pid_i" value="5"/>
-        <param name="s_pid_d" value="1"/>
-        <param name="max_s_error" value="100.0"/>
     </node>
 </launch>
